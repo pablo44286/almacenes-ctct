@@ -748,31 +748,32 @@ function abrirDetalle(codigoSAP) {
     : `<div class="no-img">Sin imagen</div>`;
 
   const campos = [
-    ['Descripción',         m.material],
-    ['Código SAP',          m.codigo_sap],
-    ['Código del material', m.codigo_material],
-    ['Marca',               m.marca],
-    ['Área',                m.area],
-    ['Ubicación en almacén',m.ubicacion],
-    ['Ubicación técnica',   m.ubicacion_tecnica],
-    ['Cantidad en almacén', m.cantidad],
-    ['Unidad de despacho',  m.unidad_despacho],
-    ['Unidad de compra',    m.unidad_compra],
-    ['Stock MIN',           m.stock_min],
-    ['Stock MAX',           m.stock_max],
-    ['Punto de pedido',     m.pto_pedido],
-    ['Cantidad a reponer',  m.cantidad_reponer],
-    ['Imputación',          m.imputacion],
-    ['Observaciones',       m.observaciones],
+    ['Descripción',          m.material],
+    ['Código SAP',           m.codigo_sap],
+    ['Código del material',  m.codigo_material],
+    ['Marca',                m.marca],
+    ['Área',                 m.area],
+    ['Ubicación en almacén', m.ubicacion],
+    ['Ubicación técnica',    m.ubicacion_tecnica],
+    ['Cantidad en almacén',  m.cantidad],
+    ['Unidad de despacho',   m.unidad_despacho],
+    ['Unidad de compra',     m.unidad_compra],
+    ['Stock MIN',            m.stock_min],
+    ['Stock MAX',            m.stock_max],
+    ['Punto de pedido',      m.pto_pedido],
+    ['Cantidad a reponer',   m.cantidad_reponer],
+    ['Imputación',           m.imputacion],
+    ['Observaciones',        m.observaciones]
   ];
 
-  const rows = campos.map(([k, v]) => {
-    const val = (v !== null && v !== undefined && v !== '') ? esc(v) : '<span style="color:var(--txt2)">—</span>';
-    return `<div class="detail-key">${esc(k)}</div><div class="detail-val">${val}</div>`;
+  const rows = campos.map(function(par) {
+    var k = par[0], v = par[1];
+    return '<div class="detail-key">' + esc(k) + '</div>'
+         + '<div class="detail-val">' + esc(v != null ? v : '') + '</div>';
   }).join('');
 
   document.getElementById('det-body').innerHTML =
-    img + `<div class="detail-grid">${rows}</div>`;
+    img + '<div class="detail-grid">' + rows + '</div>';
 
   document.getElementById('btn-editar-det').style.display = S.esAdmin ? '' : 'none';
   abrirOverlay('ov-detalle');
