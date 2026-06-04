@@ -1,0 +1,1089 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AlmacenesCTCT — Gestión de Inventario</title>
+  <style>
+    :root {
+      --pri:    #1e3a5f;
+      --pri-l:  #2d5282;
+      --acc:    #f97316;
+      --bg:     #f1f5f9;
+      --card:   #ffffff;
+      --txt:    #1e293b;
+      --txt2:   #64748b;
+      --border: #e2e8f0;
+      --ok:     #16a34a;
+      --err:    #dc2626;
+      --warn:   #d97706;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--txt); font-size: 14px; }
+    a { color: var(--pri); }
+
+    /* ── Login ── */
+    #login-screen {
+      min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    }
+    .login-card {
+      background: var(--card); border-radius: 12px; padding: 40px 48px;
+      box-shadow: 0 4px 24px rgba(0,0,0,.12); width: 100%; max-width: 380px; text-align: center;
+    }
+    .login-card h1 { font-size: 22px; color: var(--pri); margin-bottom: 4px; }
+    .login-card p  { color: var(--txt2); margin-bottom: 28px; font-size: 13px; }
+    .login-card input {
+      width: 100%; padding: 10px 14px; border: 1px solid var(--border);
+      border-radius: 8px; font-size: 14px; margin-bottom: 16px;
+    }
+    .login-card input:focus { outline: 2px solid var(--pri); border-color: transparent; }
+    .btn-pri {
+      background: var(--pri); color: #fff; border: none; border-radius: 8px;
+      padding: 10px 20px; font-size: 14px; font-weight: 600; cursor: pointer;
+      transition: background .15s;
+    }
+    .btn-pri:hover { background: var(--pri-l); }
+    .btn-sec {
+      background: #fff; color: var(--txt); border: 1px solid var(--border);
+      border-radius: 8px; padding: 8px 16px; font-size: 13px; cursor: pointer;
+    }
+    .btn-sec:hover { background: var(--bg); }
+    .btn-danger {
+      background: var(--err); color: #fff; border: none; border-radius: 8px;
+      padding: 8px 16px; font-size: 13px; cursor: pointer;
+    }
+    .btn-acc {
+      background: var(--acc); color: #fff; border: none; border-radius: 8px;
+      padding: 8px 16px; font-size: 13px; font-weight: 600; cursor: pointer;
+    }
+    .btn-sm { padding: 4px 10px; font-size: 12px; border-radius: 6px; }
+
+    /* ── App ── */
+    #app { display: none; }
+    header {
+      background: var(--pri); color: #fff; padding: 0 24px;
+      display: flex; align-items: center; height: 54px; gap: 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,.2);
+    }
+    header .logo { font-weight: 700; font-size: 17px; flex: 1; }
+    header .logo span { color: var(--acc); }
+    header .usr { font-size: 13px; opacity: .85; }
+    header button.logout { background: none; border: 1px solid rgba(255,255,255,.4);
+      color: #fff; padding: 4px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; }
+
+    .toolbar {
+      background: var(--card); border-bottom: 1px solid var(--border);
+      padding: 12px 24px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+    }
+    .search-wrap { display: flex; gap: 0; flex: 1; min-width: 260px; }
+    .search-wrap input {
+      flex: 1; padding: 9px 14px; border: 1px solid var(--border);
+      border-right: none; border-radius: 8px 0 0 8px; font-size: 14px;
+    }
+    .search-wrap input:focus { outline: 2px solid var(--pri); z-index: 1; }
+    .search-wrap select {
+      padding: 9px 10px; border: 1px solid var(--border); background: var(--bg);
+      border-radius: 0 8px 8px 0; font-size: 13px; cursor: pointer;
+    }
+    .toolbar .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+    .stats-bar {
+      padding: 8px 24px; font-size: 12px; color: var(--txt2);
+      display: flex; align-items: center; gap: 16px;
+    }
+    .badge { background: var(--pri); color: #fff; padding: 2px 8px;
+      border-radius: 99px; font-size: 11px; font-weight: 600; }
+    .badge.warn { background: var(--warn); }
+
+    /* ── Tabla ── */
+    .table-wrap { overflow-x: auto; padding: 0 24px 24px; }
+    table { width: 100%; border-collapse: collapse; background: var(--card);
+      border-radius: 10px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+    thead { background: var(--pri); color: #fff; }
+    th { padding: 10px 12px; text-align: left; font-weight: 600; font-size: 12px;
+      white-space: nowrap; }
+    td { padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #f8fafc; }
+    .td-mat { max-width: 300px; }
+    .td-mat span { display: block; white-space: nowrap; overflow: hidden;
+      text-overflow: ellipsis; max-width: 280px; }
+    .cant { font-weight: 700; }
+    .cant.low { color: var(--warn); }
+    .cant.zero { color: var(--err); }
+    .chip { display: inline-block; background: var(--bg); border: 1px solid var(--border);
+      padding: 2px 8px; border-radius: 99px; font-size: 11px; color: var(--txt2); }
+    .action-btns { display: flex; gap: 4px; }
+
+    /* ── Paginación ── */
+    .pagination { display: flex; gap: 8px; align-items: center;
+      justify-content: center; padding: 16px 0; }
+    .pagination button { padding: 6px 14px; border: 1px solid var(--border);
+      background: var(--card); border-radius: 6px; cursor: pointer; font-size: 13px; }
+    .pagination button.active { background: var(--pri); color: #fff; border-color: var(--pri); }
+    .pagination span { font-size: 13px; color: var(--txt2); }
+
+    /* ── Modales ── */
+    .overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,.45);
+      display: none; align-items: flex-start; justify-content: center;
+      padding: 32px 16px; z-index: 1000; overflow-y: auto;
+    }
+    .overlay.open { display: flex; }
+    .modal {
+      background: var(--card); border-radius: 12px; width: 100%; max-width: 720px;
+      box-shadow: 0 8px 40px rgba(0,0,0,.2); animation: fadeUp .18s ease;
+    }
+    @keyframes fadeUp { from { transform: translateY(16px); opacity: 0; } to { transform: none; opacity: 1; } }
+    .modal-header {
+      padding: 18px 24px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 12px;
+    }
+    .modal-header h2 { font-size: 16px; flex: 1; }
+    .modal-header button.close {
+      background: none; border: none; font-size: 20px; cursor: pointer;
+      color: var(--txt2); line-height: 1;
+    }
+    .modal-body { padding: 24px; }
+    .modal-footer {
+      padding: 16px 24px; border-top: 1px solid var(--border);
+      display: flex; gap: 10px; justify-content: flex-end;
+    }
+
+    /* ── Formularios ── */
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .form-grid .span2 { grid-column: span 2; }
+    label { display: block; font-size: 12px; font-weight: 600;
+      color: var(--txt2); margin-bottom: 4px; }
+    input[type=text], input[type=number], select, textarea {
+      width: 100%; padding: 8px 12px; border: 1px solid var(--border);
+      border-radius: 7px; font-size: 13px; background: #fff; color: var(--txt);
+    }
+    input:focus, select:focus, textarea:focus {
+      outline: 2px solid var(--pri); border-color: transparent;
+    }
+    textarea { resize: vertical; min-height: 60px; }
+    .required-mark { color: var(--err); }
+
+    /* ── Detalle ── */
+    .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+    .detail-row { padding: 9px 0; border-bottom: 1px solid var(--border); display: contents; }
+    .detail-key { padding: 9px 12px 9px 0; font-size: 12px; font-weight: 600;
+      color: var(--txt2); border-bottom: 1px solid var(--border); }
+    .detail-val { padding: 9px 0; border-bottom: 1px solid var(--border); word-break: break-word; }
+    .detail-img { width: 100%; max-height: 220px; object-fit: contain;
+      border: 1px solid var(--border); border-radius: 8px; margin-bottom: 16px; }
+    .no-img { display: flex; align-items: center; justify-content: center;
+      height: 120px; background: var(--bg); border-radius: 8px;
+      color: var(--txt2); font-size: 12px; margin-bottom: 16px; border: 1px dashed var(--border); }
+
+    /* ── Movimientos tabla ── */
+    .mov-table td, .mov-table th { font-size: 12px; padding: 7px 10px; }
+    .tipo-E { color: var(--ok); font-weight: 700; }
+    .tipo-S { color: var(--err); font-weight: 700; }
+
+    /* ── Toast ── */
+    #toast-wrap { position: fixed; bottom: 24px; right: 24px; z-index: 9999;
+      display: flex; flex-direction: column; gap: 8px; }
+    .toast { padding: 12px 20px; border-radius: 8px; color: #fff; font-size: 13px;
+      box-shadow: 0 4px 12px rgba(0,0,0,.15); animation: toastIn .2s ease;
+      max-width: 320px; }
+    @keyframes toastIn { from { transform: translateX(20px); opacity: 0; } to { transform: none; opacity: 1; } }
+    .toast.ok   { background: var(--ok); }
+    .toast.err  { background: var(--err); }
+    .toast.warn { background: var(--warn); }
+
+    /* ── Loading ── */
+    .loading-overlay {
+      position: fixed; inset: 0; background: rgba(255,255,255,.7);
+      display: none; align-items: center; justify-content: center; z-index: 2000;
+    }
+    .loading-overlay.show { display: flex; }
+    .spinner { width: 40px; height: 40px; border: 4px solid var(--border);
+      border-top-color: var(--pri); border-radius: 50%; animation: spin .7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Empty state ── */
+    .empty { text-align: center; padding: 48px 24px; color: var(--txt2); }
+    .empty svg { opacity: .3; margin-bottom: 12px; }
+
+    @media (max-width: 640px) {
+      .form-grid { grid-template-columns: 1fr; }
+      .form-grid .span2 { grid-column: span 1; }
+      .detail-grid { grid-template-columns: 1fr; }
+      .detail-key { border-bottom: none; padding-bottom: 2px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══ LOGIN ══════════════════════════════════════════════════ -->
+<div id="login-screen">
+  <div class="login-card">
+    <h1>Almacenes <span style="color:var(--acc)">CTCT</span></h1>
+    <p>Central Térmica de Cogeneración Timbúes</p>
+    <input type="text" id="inp-usuario" placeholder="Tu nombre completo" maxlength="60">
+    <button class="btn-pri" style="width:100%" onclick="iniciarSesion()">Entrar</button>
+  </div>
+</div>
+
+<!-- ══ APP ════════════════════════════════════════════════════ -->
+<div id="app">
+  <header>
+    <div class="logo">Almacenes <span>CTCT</span></div>
+    <span class="usr" id="lbl-usuario"></span>
+    <button class="logout" onclick="cerrarSesion()">Salir</button>
+  </header>
+
+  <div class="toolbar">
+    <div class="search-wrap">
+      <input type="text" id="inp-buscar" placeholder="Buscar materiales…" oninput="debounceBuscar()" autocomplete="off">
+      <select id="sel-campo">
+        <option value="todos">Todos los campos</option>
+        <option value="material">Descripción</option>
+        <option value="codigo_sap">Código SAP</option>
+        <option value="codigo_material">Código material</option>
+        <option value="marca">Marca</option>
+        <option value="area">Área</option>
+        <option value="ubicacion">Ubicación</option>
+      </select>
+    </div>
+    <div class="actions">
+      <button class="btn-acc" onclick="abrirAltaMaterial()">+ Nuevo material</button>
+      <button class="btn-sec" onclick="abrirAltaMasiva()">↑ Carga masiva</button>
+      <button class="btn-sec" onclick="exportarCSV()">↓ Exportar CSV</button>
+      <button class="btn-sec admin-only" onclick="abrirAuditoria()" style="display:none">📋 Auditoría</button>
+    </div>
+  </div>
+
+  <div class="stats-bar">
+    <span id="lbl-total"></span>
+    <span id="lbl-filtrados"></span>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>SAP</th>
+          <th>Material</th>
+          <th>Área</th>
+          <th>Ubicación</th>
+          <th>Cantidad</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+    <div id="empty-state" class="empty" style="display:none">
+      <svg width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+        <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+      </svg>
+      <p>Sin resultados</p>
+    </div>
+    <div class="pagination" id="pagination"></div>
+  </div>
+</div>
+
+<!-- ══ MODAL: DETALLE ════════════════════════════════════════ -->
+<div class="overlay" id="ov-detalle">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="det-titulo">Detalle del material</h2>
+      <button class="close" onclick="cerrarOverlay('ov-detalle')">✕</button>
+    </div>
+    <div class="modal-body" id="det-body"></div>
+    <div class="modal-footer">
+      <button class="btn-sec" onclick="abrirMovDesde()">Registrar movimiento</button>
+      <button class="btn-sec admin-only" onclick="abrirEdicionDesde()" id="btn-editar-det">Editar</button>
+      <button class="btn-sec" onclick="abrirMovimientosMat()">Ver movimientos</button>
+      <button class="btn-sec" onclick="cerrarOverlay('ov-detalle')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: ALTA / EDICIÓN ═════════════════════════════════ -->
+<div class="overlay" id="ov-material">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="mat-titulo">Nuevo material</h2>
+      <button class="close" onclick="cerrarOverlay('ov-material')">✕</button>
+    </div>
+    <div class="modal-body">
+      <form id="form-material" onsubmit="submitMaterial(event)">
+        <div class="form-grid">
+          <div class="span2">
+            <label>Descripción <span class="required-mark">*</span></label>
+            <input type="text" name="material" required maxlength="200">
+          </div>
+          <div>
+            <label>Código SAP <span class="required-mark">*</span></label>
+            <input type="text" name="codigo_sap" required>
+          </div>
+          <div>
+            <label>Código del material</label>
+            <input type="text" name="codigo_material">
+          </div>
+          <div>
+            <label>Marca</label>
+            <input type="text" name="marca">
+          </div>
+          <div>
+            <label>Área</label>
+            <select name="area">
+              <option value=""></option>
+              <option>ACCESORIOS ELECTRICOS</option>
+              <option>ACCESORIOS I&C</option>
+              <option>ACCESORIOS MECANICOS</option>
+              <option>AEROENFRIADORES</option>
+              <option>CASA DE FILTROS</option>
+              <option>DIVERTER</option>
+              <option>GAS</option>
+              <option>HRSG</option>
+              <option>HVAC</option>
+              <option>INSTRUMENTACION</option>
+              <option>LABORATORIO</option>
+              <option>MODULO BASE</option>
+              <option>REPUESTOS ELECTRICOS</option>
+              <option>SIN AREA</option>
+              <option>VARIOS</option>
+            </select>
+          </div>
+          <div>
+            <label>Ubicación en almacén</label>
+            <input type="text" name="ubicacion" placeholder="ej: 10BB02-30">
+          </div>
+          <div>
+            <label>Cantidad en almacén</label>
+            <input type="number" name="cantidad" min="0" value="0">
+          </div>
+          <div>
+            <label>Unidad de despacho</label>
+            <input type="text" name="unidad_despacho">
+          </div>
+          <div>
+            <label>Unidad de compra</label>
+            <input type="text" name="unidad_compra">
+          </div>
+          <div>
+            <label>Stock mínimo</label>
+            <input type="number" name="stock_min" step="any" min="0">
+          </div>
+          <div>
+            <label>Stock máximo</label>
+            <input type="number" name="stock_max" step="any" min="0">
+          </div>
+          <div>
+            <label>Punto de pedido</label>
+            <input type="number" name="pto_pedido" step="any" min="0">
+          </div>
+          <div>
+            <label>Imputación</label>
+            <input type="text" name="imputacion">
+          </div>
+          <div>
+            <label>Ubicación técnica (KKS)</label>
+            <input type="text" name="ubicacion_tecnica">
+          </div>
+          <div>
+            <label>URL imagen (Google Drive)</label>
+            <input type="text" name="imagen_url" placeholder="https://drive.google.com/…">
+          </div>
+          <div class="span2">
+            <label>Observaciones</label>
+            <textarea name="observaciones"></textarea>
+          </div>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-sec" onclick="cerrarOverlay('ov-material')">Cancelar</button>
+      <button class="btn-pri" onclick="document.getElementById('form-material').requestSubmit()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: MOVIMIENTO ══════════════════════════════════════ -->
+<div class="overlay" id="ov-movimiento">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header">
+      <h2>Registrar movimiento</h2>
+      <button class="close" onclick="cerrarOverlay('ov-movimiento')">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="margin-bottom:16px;color:var(--txt2);font-size:13px" id="mov-mat-info"></p>
+      <form id="form-mov" onsubmit="submitMovimiento(event)">
+        <div class="form-grid">
+          <div>
+            <label>Tipo <span class="required-mark">*</span></label>
+            <select name="tipo" required>
+              <option value="E">Entrada (ingreso)</option>
+              <option value="S">Salida (egreso)</option>
+            </select>
+          </div>
+          <div>
+            <label>Cantidad <span class="required-mark">*</span></label>
+            <input type="number" name="cantidad" min="0.01" step="any" required>
+          </div>
+          <div class="span2">
+            <label>N° Orden SAP</label>
+            <input type="text" name="nro_orden_sap">
+          </div>
+          <div class="span2">
+            <label>Observación</label>
+            <textarea name="observacion" style="min-height:50px"></textarea>
+          </div>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-sec" onclick="cerrarOverlay('ov-movimiento')">Cancelar</button>
+      <button class="btn-pri" onclick="document.getElementById('form-mov').requestSubmit()">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: MOVIMIENTOS DEL MATERIAL ═══════════════════════ -->
+<div class="overlay" id="ov-movs-mat">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="movs-titulo">Movimientos</h2>
+      <button class="close" onclick="cerrarOverlay('ov-movs-mat')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="table-wrap" style="padding:0">
+        <table class="mov-table">
+          <thead>
+            <tr><th>Fecha</th><th>Tipo</th><th>Cantidad</th><th>Usuario</th><th>Orden SAP</th><th>Observación</th></tr>
+          </thead>
+          <tbody id="tbody-movs"></tbody>
+        </table>
+        <div id="movs-empty" class="empty" style="display:none"><p>Sin movimientos registrados</p></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-sec" onclick="cerrarOverlay('ov-movs-mat')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: ALTA MASIVA ════════════════════════════════════ -->
+<div class="overlay" id="ov-masiva">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-header">
+      <h2>Carga masiva desde CSV</h2>
+      <button class="close" onclick="cerrarOverlay('ov-masiva')">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:var(--txt2);margin-bottom:14px">
+        El CSV debe tener cabecera. Columnas reconocidas (case-insensitive):
+        <code>codigo_sap</code>, <code>material</code>, <code>codigo_material</code>,
+        <code>marca</code>, <code>area</code>, <code>ubicacion</code>, <code>cantidad</code>,
+        <code>observaciones</code>, <code>ubicacion_tecnica</code>.
+      </p>
+      <label>Archivo CSV</label>
+      <input type="file" id="inp-csv" accept=".csv,.txt" style="margin-bottom:14px">
+      <div id="csv-preview" style="font-size:12px;color:var(--txt2)"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-sec" onclick="cerrarOverlay('ov-masiva')">Cancelar</button>
+      <button class="btn-pri" id="btn-subir-csv" onclick="submitMasiva()" disabled>Importar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: AUDITORÍA ══════════════════════════════════════ -->
+<div class="overlay" id="ov-auditoria">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Log de auditoría</h2>
+      <button class="close" onclick="cerrarOverlay('ov-auditoria')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="table-wrap" style="padding:0">
+        <table class="mov-table">
+          <thead>
+            <tr><th>Fecha</th><th>Usuario</th><th>Acción</th><th>Campo</th><th>Anterior</th><th>Nuevo</th><th>SAP</th></tr>
+          </thead>
+          <tbody id="tbody-aud"></tbody>
+        </table>
+        <div id="aud-empty" class="empty" style="display:none"><p>Sin registros</p></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-sec" onclick="cerrarOverlay('ov-auditoria')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ LOADING / TOAST ═══════════════════════════════════════ -->
+<div class="loading-overlay" id="loading"><div class="spinner"></div></div>
+<div id="toast-wrap"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// CONFIGURACIÓN — reemplazar con la URL del deploy de Apps Script
+// ═══════════════════════════════════════════════════════════
+const API_URL = 'https://script.google.com/macros/s/AKfycbyxIVRC7woqSjKedRomoUiV4T7uViXOR0S8KY5ypwahAsmVYPywhjoh46mBUs2fgh8iwg/exec';
+const ADMIN_USER = 'Pablo Roa'; // usuario con permisos de admin
+
+// ═══════════════════════════════════════════════════════════
+// ESTADO
+// ═══════════════════════════════════════════════════════════
+const S = {
+  materiales: [],  // todos los materiales (cargados al inicio)
+  filtrados:  [],  // resultado de la búsqueda actual
+  pagina:     0,
+  POR_PAGINA: 50,
+  usuario:    '',
+  esAdmin:    false,
+  matActivo:  null, // material seleccionado en detalle/movimiento
+  csvData:    null  // datos parseados del CSV pendiente
+};
+
+// ═══════════════════════════════════════════════════════════
+// API
+// ═══════════════════════════════════════════════════════════
+async function apiGet(action, params = {}) {
+  const qs = new URLSearchParams({ action, ...params }).toString();
+  const r  = await fetch(`${API_URL}?${qs}`);
+  return r.json();
+}
+
+async function apiPost(data) {
+  // Content-Type text/plain evita el preflight CORS con Apps Script
+  const r = await fetch(API_URL, {
+    method:  'POST',
+    headers: { 'Content-Type': 'text/plain' },
+    body:    JSON.stringify(data)
+  });
+  return r.json();
+}
+
+// ═══════════════════════════════════════════════════════════
+// LOGIN
+// ═══════════════════════════════════════════════════════════
+function iniciarSesion() {
+  const usr = document.getElementById('inp-usuario').value.trim();
+  if (!usr) { toast('Ingresá tu nombre', 'warn'); return; }
+  S.usuario = usr;
+  S.esAdmin = usr.toLowerCase() === ADMIN_USER.toLowerCase();
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  document.getElementById('lbl-usuario').textContent = usr + (S.esAdmin ? ' (Admin)' : '');
+  document.querySelectorAll('.admin-only').forEach(el => {
+    el.style.display = S.esAdmin ? '' : 'none';
+  });
+  cargarMateriales();
+}
+
+document.getElementById('inp-usuario').addEventListener('keydown', e => {
+  if (e.key === 'Enter') iniciarSesion();
+});
+
+function cerrarSesion() {
+  location.reload();
+}
+
+// ═══════════════════════════════════════════════════════════
+// CARGA INICIAL
+// ═══════════════════════════════════════════════════════════
+async function cargarMateriales() {
+  mostrarLoading(true);
+  try {
+    const res = await apiGet('getTodos');
+    if (!res.ok) throw new Error(res.error);
+    S.materiales = res.data || [];
+    S.filtrados  = S.materiales;
+    S.pagina     = 0;
+    actualizarStats();
+    renderTabla();
+    toast(`${S.materiales.length} materiales cargados`, 'ok');
+  } catch(err) {
+    toast('Error al cargar materiales: ' + err.message, 'err');
+  } finally {
+    mostrarLoading(false);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// BÚSQUEDA (cliente)
+// ═══════════════════════════════════════════════════════════
+let buscarTimer = null;
+function debounceBuscar() {
+  clearTimeout(buscarTimer);
+  buscarTimer = setTimeout(ejecutarBusqueda, 200);
+}
+
+function ejecutarBusqueda() {
+  const q     = document.getElementById('inp-buscar').value.trim().toLowerCase();
+  const campo = document.getElementById('sel-campo').value;
+  const CAMPOS_BUSQUEDA = ['material','codigo_sap','codigo_material','marca','area','ubicacion'];
+
+  if (!q) {
+    S.filtrados = S.materiales;
+  } else {
+    S.filtrados = S.materiales.filter(m => {
+      const targets = campo === 'todos' ? CAMPOS_BUSQUEDA : [campo];
+      return targets.some(f => String(m[f] || '').toLowerCase().includes(q));
+    });
+  }
+  S.pagina = 0;
+  actualizarStats();
+  renderTabla();
+}
+
+// ═══════════════════════════════════════════════════════════
+// RENDER TABLA
+// ═══════════════════════════════════════════════════════════
+function renderTabla() {
+  const tbody  = document.getElementById('tbody');
+  const empty  = document.getElementById('empty-state');
+  const inicio = S.pagina * S.POR_PAGINA;
+  const fin    = inicio + S.POR_PAGINA;
+  const pag    = S.filtrados.slice(inicio, fin);
+
+  if (!S.filtrados.length) {
+    tbody.innerHTML = '';
+    empty.style.display = '';
+    document.getElementById('pagination').innerHTML = '';
+    return;
+  }
+  empty.style.display = 'none';
+
+  tbody.innerHTML = pag.map(m => {
+    const cant = Number(m.cantidad) || 0;
+    const cantClass = cant === 0 ? 'zero' : (m.stock_min && cant <= Number(m.stock_min) ? 'low' : '');
+    return `<tr>
+      <td><code>${esc(m.codigo_sap)}</code></td>
+      <td class="td-mat"><span title="${esc(m.material)}">${esc(m.material)}</span></td>
+      <td><span class="chip">${esc(m.area || '—')}</span></td>
+      <td>${esc(m.ubicacion || '—')}</td>
+      <td><span class="cant ${cantClass}">${cant}</span></td>
+      <td>
+        <div class="action-btns">
+          <button class="btn-sec btn-sm" onclick="abrirDetalle('${esc(m.codigo_sap)}')">Ver</button>
+          ${S.esAdmin ? `<button class="btn-sec btn-sm admin-only" onclick="abrirEdicion('${esc(m.codigo_sap)}')">Editar</button>` : ''}
+          <button class="btn-acc btn-sm" onclick="abrirMovimiento('${esc(m.codigo_sap)}')">Mov.</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+
+  renderPaginacion();
+}
+
+function renderPaginacion() {
+  const total = S.filtrados.length;
+  const totalPags = Math.ceil(total / S.POR_PAGINA);
+  const pag = S.pagina;
+  const div = document.getElementById('pagination');
+
+  if (totalPags <= 1) { div.innerHTML = ''; return; }
+
+  let html = `<button onclick="irPagina(${pag-1})" ${pag===0?'disabled':''}>‹</button>`;
+  const rango = 2;
+  for (let i = 0; i < totalPags; i++) {
+    if (i === 0 || i === totalPags-1 || Math.abs(i-pag) <= rango) {
+      html += `<button class="${i===pag?'active':''}" onclick="irPagina(${i})">${i+1}</button>`;
+    } else if (Math.abs(i-pag) === rango+1) {
+      html += '<span>…</span>';
+    }
+  }
+  html += `<button onclick="irPagina(${pag+1})" ${pag===totalPags-1?'disabled':''}>›</button>`;
+  html += `<span>${total} resultados</span>`;
+  div.innerHTML = html;
+}
+
+function irPagina(n) {
+  const max = Math.ceil(S.filtrados.length / S.POR_PAGINA) - 1;
+  S.pagina = Math.max(0, Math.min(n, max));
+  renderTabla();
+  window.scrollTo(0, 0);
+}
+
+function actualizarStats() {
+  document.getElementById('lbl-total').innerHTML =
+    `Total en base: <span class="badge">${S.materiales.length}</span>`;
+  if (S.filtrados.length !== S.materiales.length) {
+    document.getElementById('lbl-filtrados').innerHTML =
+      `Mostrando: <span class="badge warn">${S.filtrados.length}</span>`;
+  } else {
+    document.getElementById('lbl-filtrados').innerHTML = '';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// DETALLE
+// ═══════════════════════════════════════════════════════════
+function abrirDetalle(codigoSAP) {
+  const m = findMat(codigoSAP);
+  if (!m) return;
+  S.matActivo = m;
+
+  document.getElementById('det-titulo').textContent =
+    `SAP ${m.codigo_sap} — ${m.material}`;
+
+  const img = m.imagen_url
+    ? `<img class="detail-img" src="${esc(m.imagen_url)}" alt="imagen" onerror="this.style.display='none'">`
+    : `<div class="no-img">Sin imagen</div>`;
+
+  const campos = [
+    ['Código SAP',          m.codigo_sap],
+    ['Código del material', m.codigo_material],
+    ['Marca',               m.marca],
+    ['Área',                m.area],
+    ['Ubicación',           m.ubicacion],
+    ['Cantidad en almacén', m.cantidad],
+    ['Unidad despacho',     m.unidad_despacho],
+    ['Unidad compra',       m.unidad_compra],
+    ['Stock MIN',           m.stock_min],
+    ['Stock MAX',           m.stock_max],
+    ['Punto de pedido',     m.pto_pedido],
+    ['Cantidad a reponer',  m.cantidad_reponer],
+    ['Imputación',          m.imputacion],
+    ['Ubicación técnica',   m.ubicacion_tecnica],
+    ['Observaciones',       m.observaciones]
+  ];
+
+  const rows = campos.map(([k,v]) =>
+    `<div class="detail-key">${esc(k)}</div><div class="detail-val">${esc(v ?? '—')}</div>`
+  ).join('');
+
+  document.getElementById('det-body').innerHTML =
+    img + `<div class="detail-grid">${rows}</div>`;
+
+  document.getElementById('btn-editar-det').style.display = S.esAdmin ? '' : 'none';
+  abrirOverlay('ov-detalle');
+}
+
+// ═══════════════════════════════════════════════════════════
+// ALTA / EDICIÓN MATERIAL
+// ═══════════════════════════════════════════════════════════
+let modoEdicion = false;
+
+function abrirAltaMaterial() {
+  modoEdicion = false;
+  S.matActivo = null;
+  document.getElementById('mat-titulo').textContent = 'Nuevo material';
+  document.getElementById('form-material').reset();
+  // Habilitar campo SAP
+  document.querySelector('[name=codigo_sap]').readOnly = false;
+  abrirOverlay('ov-material');
+}
+
+function abrirEdicion(codigoSAP) {
+  const m = findMat(codigoSAP);
+  if (!m) return;
+  modoEdicion = true;
+  S.matActivo = m;
+  document.getElementById('mat-titulo').textContent = `Editar — SAP ${m.codigo_sap}`;
+  const form = document.getElementById('form-material');
+  form.reset();
+  // Poblar campos
+  const campos = ['material','codigo_sap','codigo_material','marca','area','ubicacion',
+    'cantidad','unidad_despacho','unidad_compra','stock_min','stock_max','pto_pedido',
+    'imputacion','ubicacion_tecnica','imagen_url','observaciones'];
+  campos.forEach(f => {
+    const el = form.querySelector(`[name=${f}]`);
+    if (el) el.value = m[f] ?? '';
+  });
+  document.querySelector('[name=codigo_sap]').readOnly = true;
+  abrirOverlay('ov-material');
+}
+
+function abrirEdicionDesde() {
+  if (!S.matActivo) return;
+  cerrarOverlay('ov-detalle');
+  abrirEdicion(S.matActivo.codigo_sap);
+}
+
+async function submitMaterial(e) {
+  e.preventDefault();
+  const form   = document.getElementById('form-material');
+  const fd     = new FormData(form);
+  const mat    = Object.fromEntries(fd.entries());
+
+  mostrarLoading(true);
+  try {
+    let res;
+    if (modoEdicion) {
+      const { codigo_sap, ...campos } = mat;
+      res = await apiPost({ action: 'editarMaterial', codigoSAP: S.matActivo.codigo_sap, campos, usuario: S.usuario });
+    } else {
+      res = await apiPost({ action: 'altaMaterial', material: mat, usuario: S.usuario });
+    }
+    if (!res.ok) throw new Error(res.error);
+    toast(modoEdicion ? 'Material actualizado' : 'Material creado', 'ok');
+    cerrarOverlay('ov-material');
+    await cargarMateriales();
+  } catch(err) {
+    toast(err.message, 'err');
+  } finally {
+    mostrarLoading(false);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// MOVIMIENTO
+// ═══════════════════════════════════════════════════════════
+function abrirMovimiento(codigoSAP) {
+  const m = findMat(codigoSAP);
+  if (!m) return;
+  S.matActivo = m;
+  document.getElementById('mov-mat-info').textContent =
+    `SAP ${m.codigo_sap} — ${m.material} | Stock actual: ${m.cantidad}`;
+  document.getElementById('form-mov').reset();
+  abrirOverlay('ov-movimiento');
+}
+
+function abrirMovDesde() {
+  if (!S.matActivo) return;
+  cerrarOverlay('ov-detalle');
+  abrirMovimiento(S.matActivo.codigo_sap);
+}
+
+async function submitMovimiento(e) {
+  e.preventDefault();
+  const fd  = new FormData(document.getElementById('form-mov'));
+  const mov = {
+    codigoSAP:    S.matActivo.codigo_sap,
+    tipo:         fd.get('tipo'),
+    cantidad:     parseFloat(fd.get('cantidad')),
+    nro_orden_sap:fd.get('nro_orden_sap'),
+    observacion:  fd.get('observacion')
+  };
+  mostrarLoading(true);
+  try {
+    const res = await apiPost({ action: 'registrarMovimiento', movimiento: mov, usuario: S.usuario });
+    if (!res.ok) throw new Error(res.error);
+    const d = res.data;
+    toast(`Movimiento registrado. Stock: ${d.cantidadAnterior} → ${d.cantidadNueva}`, 'ok');
+    cerrarOverlay('ov-movimiento');
+    await cargarMateriales();
+  } catch(err) {
+    toast(err.message, 'err');
+  } finally {
+    mostrarLoading(false);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// MOVIMIENTOS DEL MATERIAL
+// ═══════════════════════════════════════════════════════════
+async function abrirMovimientosMat() {
+  if (!S.matActivo) return;
+  const m = S.matActivo;
+  document.getElementById('movs-titulo').textContent = `Movimientos — SAP ${m.codigo_sap}`;
+  mostrarLoading(true);
+  try {
+    const res = await apiGet('getMovimientos', { codigoSAP: m.codigo_sap });
+    if (!res.ok) throw new Error(res.error);
+    const movs = res.data || [];
+    const tbody = document.getElementById('tbody-movs');
+    const empty = document.getElementById('movs-empty');
+    if (!movs.length) {
+      tbody.innerHTML = ''; empty.style.display = '';
+    } else {
+      empty.style.display = 'none';
+      tbody.innerHTML = movs.map(mv =>
+        `<tr>
+          <td>${esc(mv.fecha)}</td>
+          <td><span class="tipo-${mv.tipo}">${mv.tipo === 'E' ? '▲ Entrada' : '▼ Salida'}</span></td>
+          <td>${mv.cantidad}</td>
+          <td>${esc(mv.usuario)}</td>
+          <td>${esc(mv.nro_orden_sap || '—')}</td>
+          <td>${esc(mv.observacion || '—')}</td>
+        </tr>`
+      ).join('');
+    }
+    abrirOverlay('ov-movs-mat');
+  } catch(err) {
+    toast(err.message, 'err');
+  } finally {
+    mostrarLoading(false);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// EXPORTAR CSV
+// ═══════════════════════════════════════════════════════════
+function exportarCSV() {
+  const datos = S.filtrados.length < S.materiales.length ? S.filtrados : S.materiales;
+  const cols  = ['codigo_sap','material','codigo_material','marca','area','ubicacion',
+                 'cantidad','unidad_despacho','unidad_compra','stock_min','stock_max',
+                 'pto_pedido','imputacion','ubicacion_tecnica','observaciones','imagen_url'];
+  const header = cols.join(';');
+  const rows   = datos.map(m =>
+    cols.map(c => `"${String(m[c] ?? '').replace(/"/g,'""')}"`).join(';')
+  );
+  const csv = '﻿' + [header, ...rows].join('\r\n'); // BOM para Excel
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = Object.assign(document.createElement('a'), {
+    href: url, download: `AlmacenesCTCT_${fechaHoy()}.csv`
+  });
+  a.click();
+  URL.revokeObjectURL(url);
+  toast(`${datos.length} registros exportados`, 'ok');
+}
+
+// ═══════════════════════════════════════════════════════════
+// ALTA MASIVA CSV
+// ═══════════════════════════════════════════════════════════
+function abrirAltaMasiva() {
+  S.csvData = null;
+  document.getElementById('inp-csv').value = '';
+  document.getElementById('csv-preview').textContent = '';
+  document.getElementById('btn-subir-csv').disabled = true;
+  abrirOverlay('ov-masiva');
+}
+
+document.getElementById('inp-csv').addEventListener('change', function() {
+  const file = this.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      S.csvData = parsearCSV(e.target.result);
+      document.getElementById('csv-preview').textContent =
+        `${S.csvData.length} filas detectadas. Primeros campos: ` +
+        (S.csvData[0] ? Object.keys(S.csvData[0]).join(', ') : '');
+      document.getElementById('btn-subir-csv').disabled = false;
+    } catch(err) {
+      document.getElementById('csv-preview').textContent = 'Error al parsear: ' + err.message;
+      document.getElementById('btn-subir-csv').disabled = true;
+    }
+  };
+  reader.readAsText(file, 'UTF-8');
+});
+
+function parsearCSV(texto) {
+  const lines = texto.replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n').filter(l => l.trim());
+  if (lines.length < 2) throw new Error('El archivo está vacío o solo tiene cabecera');
+
+  const sep     = lines[0].includes(';') ? ';' : ',';
+  const headers = lines[0].split(sep).map(h => h.replace(/^["']|["']$/g,'').trim().toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g,'') // quita tildes
+    .replace(/\s+/g,'_')
+  );
+
+  const ALIAS = {
+    // nombres exactos del export de Access
+    codigo_del_material:  'codigo_material',
+    ubicacion_en_almacen: 'ubicacion',
+    cantidad_en_almacen:  'cantidad',
+    cantidad_a_reponer:   'cantidad_reponer',
+    // alias generales
+    descripcion: 'material', description: 'material',
+    sap: 'codigo_sap', cod_sap: 'codigo_sap',
+    cod_material: 'codigo_material', codigo: 'codigo_material',
+    ubicacion_almacen: 'ubicacion', stock: 'cantidad', qty: 'cantidad'
+  };
+  const mapped = headers.map(h => ALIAS[h] || h);
+
+  return lines.slice(1).map(line => {
+    const vals = line.split(sep).map(v => v.replace(/^["']|["']$/g,'').trim());
+    const obj  = {};
+    mapped.forEach((k, i) => { obj[k] = vals[i] ?? ''; });
+    return obj;
+  }).filter(r => r.codigo_sap || r.material);
+}
+
+async function submitMasiva() {
+  if (!S.csvData || !S.csvData.length) return;
+  mostrarLoading(true);
+  try {
+    const res = await apiPost({ action: 'altaMasiva', materiales: S.csvData, usuario: S.usuario });
+    if (!res.ok) throw new Error(res.error);
+    const { insertados, omitidos } = res.data;
+    toast(`Importación completa: ${insertados} insertados, ${omitidos} omitidos (SAP duplicado)`, 'ok');
+    cerrarOverlay('ov-masiva');
+    await cargarMateriales();
+  } catch(err) {
+    toast(err.message, 'err');
+  } finally {
+    mostrarLoading(false);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// AUDITORÍA (admin)
+// ═══════════════════════════════════════════════════════════
+async function abrirAuditoria() {
+  mostrarLoading(true);
+  try {
+    const res = await apiGet('getAuditoria', { limit: 300 });
+    if (!res.ok) throw new Error(res.error);
+    const logs  = res.data || [];
+    const tbody = document.getElementById('tbody-aud');
+    const empty = document.getElementById('aud-empty');
+    if (!logs.length) {
+      tbody.innerHTML = ''; empty.style.display = '';
+    } else {
+      empty.style.display = 'none';
+      tbody.innerHTML = logs.map(l =>
+        `<tr>
+          <td>${esc(l.fecha)}</td>
+          <td>${esc(l.usuario)}</td>
+          <td><strong>${esc(l.accion)}</strong></td>
+          <td>${esc(l.campo)}</td>
+          <td style="color:var(--err)">${esc(String(l.valor_anterior ?? ''))}</td>
+          <td style="color:var(--ok)">${esc(String(l.valor_nuevo ?? ''))}</td>
+          <td><code>${esc(String(l.codigo_sap ?? ''))}</code></td>
+        </tr>`
+      ).join('');
+    }
+    abrirOverlay('ov-auditoria');
+  } catch(err) {
+    toast(err.message, 'err');
+  } finally {
+    mostrarLoading(false);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════
+function findMat(codigoSAP) {
+  return S.materiales.find(m => String(m.codigo_sap) === String(codigoSAP)) || null;
+}
+
+function esc(str) {
+  return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function fechaHoy() {
+  return new Date().toISOString().slice(0,10);
+}
+
+function abrirOverlay(id) {
+  document.getElementById(id).classList.add('open');
+}
+function cerrarOverlay(id) {
+  document.getElementById(id).classList.remove('open');
+}
+
+// Cerrar overlay al click en el fondo
+document.querySelectorAll('.overlay').forEach(ov => {
+  ov.addEventListener('click', e => {
+    if (e.target === ov) cerrarOverlay(ov.id);
+  });
+});
+
+function mostrarLoading(v) {
+  document.getElementById('loading').classList.toggle('show', v);
+}
+
+function toast(msg, tipo = 'ok') {
+  const wrap = document.getElementById('toast-wrap');
+  const el   = document.createElement('div');
+  el.className = `toast ${tipo}`;
+  el.textContent = msg;
+  wrap.appendChild(el);
+  setTimeout(() => el.remove(), 4000);
+}
+</script>
+</body>
+</html>
