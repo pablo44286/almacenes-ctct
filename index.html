@@ -735,10 +735,12 @@ function actualizarStats() {
 // ═══════════════════════════════════════════════════════════
 // DETALLE
 // ═══════════════════════════════════════════════════════════
-function driveThumb(url) {
+function driveImgUrl(url) {
   if (!url) return '';
+  // Extraer FILE_ID y construir URL directa de contenido
   var m = url.match(/[?&]id=([^&\s]+)/);
-  return m ? 'https://drive.google.com/thumbnail?id=' + m[1] + '&sz=w800' : url;
+  if (!m) return url;
+  return 'https://drive.google.com/uc?export=download&id=' + m[1];
 }
 
 function abrirDetalle(codigoSAP) {
@@ -749,10 +751,17 @@ function abrirDetalle(codigoSAP) {
   document.getElementById('det-titulo').textContent =
     `SAP ${m.codigo_sap} — ${m.material}`;
 
-  const imgSrc = driveThumb(m.imagen_url);
+  const imgSrc = driveImgUrl(m.imagen_url);
+  const imgLink = m.imagen_url
+    ? `<a href="${esc(m.imagen_url)}" target="_blank" style="font-size:12px;color:var(--pri)">↗ Abrir imagen en Drive</a>`
+    : '';
   const img = imgSrc
-    ? `<img class="detail-img" src="${esc(imgSrc)}" alt="imagen" onerror="this.outerHTML='<div class=no-img>Sin imagen</div>'">`
-    : `<div class="no-img">Sin imagen</div>`;
+    ? `<div style="margin-bottom:12px"><img class="detail-img" src="${esc(imgSrc)}" alt="imagen"
+        onerror="this.style.display='none';this.nextSibling.style.display='flex'"
+        style="margin-bottom:4px">
+        <div class="no-img" style="display:none">Sin imagen (no se pudo cargar)</div>
+        ${imgLink}</div>`
+    : `<div class="no-img" style="margin-bottom:12px">Sin imagen</div>`;
 
   const campos = [
     ['Descripción',          m.material],
