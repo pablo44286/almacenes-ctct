@@ -274,9 +274,14 @@
         <tr>
           <th>SAP</th>
           <th>Material</th>
+          <th>Cód. material</th>
+          <th>Marca</th>
           <th>Área</th>
           <th>Ubicación</th>
+          <th>Ubic. técnica</th>
           <th>Cantidad</th>
+          <th>Observaciones</th>
+          <th>Img</th>
           <th>Acciones</th>
         </tr>
       </thead>
@@ -648,7 +653,7 @@ function renderTabla() {
   const empty  = document.getElementById('empty-state');
   const inicio = S.pagina * S.POR_PAGINA;
   const fin    = inicio + S.POR_PAGINA;
-  const pag    = S.filtrados.slice(inicio, fin);
+  const pag = S.filtrados.slice(inicio, fin);
 
   if (!S.filtrados.length) {
     tbody.innerHTML = '';
@@ -661,12 +666,19 @@ function renderTabla() {
   tbody.innerHTML = pag.map(m => {
     const cant = Number(m.cantidad) || 0;
     const cantClass = cant === 0 ? 'zero' : (m.stock_min && cant <= Number(m.stock_min) ? 'low' : '');
+    const tieneImg = m.imagen_url ? '✓' : '—';
+    const imgClass = m.imagen_url ? 'style="color:var(--ok);font-weight:700"' : 'style="color:var(--txt2)"';
     return `<tr>
       <td><code>${esc(m.codigo_sap)}</code></td>
       <td class="td-mat"><span title="${esc(m.material)}">${esc(m.material)}</span></td>
+      <td>${esc(m.codigo_material || '—')}</td>
+      <td>${esc(m.marca || '—')}</td>
       <td><span class="chip">${esc(m.area || '—')}</span></td>
       <td>${esc(m.ubicacion || '—')}</td>
+      <td>${esc(m.ubicacion_tecnica || '—')}</td>
       <td><span class="cant ${cantClass}">${cant}</span></td>
+      <td class="td-mat"><span title="${esc(m.observaciones || '')}">${esc(m.observaciones || '—')}</span></td>
+      <td ${imgClass}>${tieneImg}</td>
       <td>
         <div class="action-btns">
           <button class="btn-sec btn-sm" onclick="abrirDetalle('${esc(m.codigo_sap)}')">Ver</button>
