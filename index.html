@@ -737,7 +737,10 @@ function actualizarStats() {
 // ═══════════════════════════════════════════════════════════
 function abrirDetalle(codigoSAP) {
   const m = findMat(codigoSAP);
-  if (!m) return;
+  if (!m) {
+    toast('DEBUG: SAP=' + codigoSAP + ' | materiales cargados=' + S.materiales.length, 'err');
+    return;
+  }
   S.matActivo = m;
 
   document.getElementById('det-titulo').textContent =
