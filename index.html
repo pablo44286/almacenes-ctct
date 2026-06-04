@@ -397,9 +397,15 @@
             <label>Ubicación técnica (KKS)</label>
             <input type="text" name="ubicacion_tecnica">
           </div>
-          <div>
-            <label>URL imagen (Google Drive)</label>
-            <input type="text" name="imagen_url" placeholder="https://drive.google.com/…">
+          <div class="span2">
+            <label>Imagen</label>
+            <div id="form-img-preview" style="margin-bottom:8px"></div>
+            <input type="file" id="inp-imagen-file" accept="image/jpeg,image/png,image/gif,image/webp"
+              style="margin-bottom:6px" onchange="previewNuevaImagen(this)">
+            <small style="color:var(--txt2);display:block;margin-bottom:6px">
+              O pegá la URL de Drive directamente:
+            </small>
+            <input type="text" name="imagen_url" id="inp-imagen-url" placeholder="https://drive.google.com/…">
           </div>
           <div class="span2">
             <label>Observaciones</label>
@@ -800,12 +806,45 @@ function abrirDetalle(codigoSAP) {
 // ═══════════════════════════════════════════════════════════
 let modoEdicion = false;
 
+function previewNuevaImagen(input) {
+  if (!input.files || !input.files[0]) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    document.getElementById('form-img-preview').innerHTML =
+      '<img src="' + e.target.result + '" style="max-height:120px;border-radius:6px;border:1px solid var(--border)">';
+    document.getElementById('inp-imagen-url').value = '';
+  };
+  reader.readAsDataURL(input.files[0]);
+}
+
+async function uploadImagen(codigoSAP, file) {
+  return new Promise(function(resolve, reject) {
+    const reader = new FileReader();
+    reader.onload = async function(e) {
+      const base64    = e.target.result.split(',')[1];
+      const mimeType  = file.type || 'image/jpeg';
+      const extension = file.name.split('.').pop().toLowerCase();
+      try {
+        const res = await apiPost({
+          action: 'subirImagen',
+          codigoSAP: String(codigoSAP),
+          base64, mimeType, extension
+        });
+        if (!res.ok) throw new Error(res.error || 'Error al subir imagen');
+        resolve(res.data.url);
+      } catch(err) { reject(err); }
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 function abrirAltaMaterial() {
   modoEdicion = false;
   S.matActivo = null;
   document.getElementById('mat-titulo').textContent = 'Nuevo material';
   document.getElementById('form-material').reset();
-  // Habilitar campo SAP
+  document.getElementById('form-img-preview').innerHTML = '';
+  document.getElementById('inp-imagen-file').value = '';
   document.querySelector('[name=codigo_sap]').readOnly = false;
   abrirOverlay('ov-material');
 }
@@ -827,6 +866,11 @@ function abrirEdicion(codigoSAP) {
     if (el) el.value = m[f] ?? '';
   });
   document.querySelector('[name=codigo_sap]').readOnly = true;
+  document.getElementById('inp-imagen-file').value = '';
+  const imgSrc = driveImgUrl(m.imagen_url);
+  document.getElementById('form-img-preview').innerHTML = imgSrc
+    ? '<img src="' + esc(imgSrc) + '" style="max-height:120px;border-radius:6px;border:1px solid var(--border)" onerror="this.style.display=\'none\'">'
+    : '<div class="no-img" style="height:60px;font-size:12px">Sin imagen</div>';
   abrirOverlay('ov-material');
 }
 
@@ -844,6 +888,14 @@ async function submitMaterial(e) {
 
   mostrarLoading(true);
   try {
+    // Subir imagen si se seleccionó un archivo
+    const imgFile = document.getElementById('inp-imagen-file').files[0];
+    if (imgFile) {
+      const codigoSAP = modoEdicion ? S.matActivo.codigo_sap : mat.codigo_sap;
+      toast('Subiendo imagen…', 'ok');
+      mat.imagen_url = await uploadImagen(codigoSAP, imgFile);
+    }
+
     let res;
     if (modoEdicion) {
       const { codigo_sap, ...campos } = mat;
