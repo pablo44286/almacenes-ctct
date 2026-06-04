@@ -735,19 +735,23 @@ function actualizarStats() {
 // ═══════════════════════════════════════════════════════════
 // DETALLE
 // ═══════════════════════════════════════════════════════════
+function driveThumb(url) {
+  if (!url) return '';
+  var m = url.match(/[?&]id=([^&\s]+)/);
+  return m ? 'https://drive.google.com/thumbnail?id=' + m[1] + '&sz=w800' : url;
+}
+
 function abrirDetalle(codigoSAP) {
   const m = findMat(codigoSAP);
-  if (!m) {
-    toast('DEBUG: SAP=' + codigoSAP + ' | materiales cargados=' + S.materiales.length, 'err');
-    return;
-  }
+  if (!m) return;
   S.matActivo = m;
 
   document.getElementById('det-titulo').textContent =
     `SAP ${m.codigo_sap} — ${m.material}`;
 
-  const img = m.imagen_url
-    ? `<img class="detail-img" src="${esc(m.imagen_url)}" alt="imagen" onerror="this.style.display='none'">`
+  const imgSrc = driveThumb(m.imagen_url);
+  const img = imgSrc
+    ? `<img class="detail-img" src="${esc(imgSrc)}" alt="imagen" onerror="this.outerHTML='<div class=no-img>Sin imagen</div>'">`
     : `<div class="no-img">Sin imagen</div>`;
 
   const campos = [
