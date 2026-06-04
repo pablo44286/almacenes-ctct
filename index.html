@@ -524,7 +524,12 @@
         <code>Cantidad_en_almacen</code> &nbsp;·&nbsp; <code>Ubicacion_en_almacen</code> &nbsp;·&nbsp;
         <code>Stock_MIN</code> &nbsp;·&nbsp; <code>Stock_MAX</code> &nbsp;·&nbsp;
         <code>Area</code> &nbsp;·&nbsp; <code>Observaciones</code><br>
-        <span style="color:var(--txt2)">Separador: <code>;</code> o <code>,</code> — solo se actualizan los campos presentes.</span>
+        <span style="color:var(--txt2)">Solo se actualizan los campos presentes en el CSV.</span>
+        <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn-sec btn-sm" onclick="descargarTemplate('stocks')">↓ Template stocks</button>
+          <button class="btn-sec btn-sm" onclick="descargarTemplate('ubicaciones')">↓ Template ubicaciones</button>
+          <button class="btn-sec btn-sm" onclick="descargarTemplate('completo')">↓ Template completo</button>
+        </div>
       </div>
       <label>Archivo CSV</label>
       <input type="file" id="inp-csv-masivo" accept=".csv,.txt" style="margin-bottom:14px"
@@ -1032,6 +1037,44 @@ const ALIAS_MASIVO = {
   area: 'area',
   observaciones: 'observaciones', observacion: 'observaciones'
 };
+
+function descargarTemplate(tipo) {
+  const TIPOS = {
+    stocks:      ['Codigo_SAP','Material','Cantidad_en_almacen','Stock_MIN','Stock_MAX'],
+    ubicaciones: ['Codigo_SAP','Material','Ubicacion_en_almacen','Area'],
+    completo:    ['Codigo_SAP','Material','Cantidad_en_almacen','Ubicacion_en_almacen','Stock_MIN','Stock_MAX','Area','Observaciones']
+  };
+  const CAMPO = {
+    Codigo_SAP:          'codigo_sap',
+    Material:            'material',
+    Cantidad_en_almacen: 'cantidad',
+    Ubicacion_en_almacen:'ubicacion',
+    Stock_MIN:           'stock_min',
+    Stock_MAX:           'stock_max',
+    Area:                'area',
+    Observaciones:       'observaciones'
+  };
+
+  const cols = TIPOS[tipo];
+  const header = cols.join(';');
+  const rows = S.materiales.map(function(m) {
+    return cols.map(function(c) {
+      var v = String(m[CAMPO[c]] !== null && m[CAMPO[c]] !== undefined ? m[CAMPO[c]] : '');
+      return '"' + v.replace(/"/g,'""') + '"';
+    }).join(';');
+  });
+
+  const csv  = '﻿' + [header].concat(rows).join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = Object.assign(document.createElement('a'), {
+    href: url,
+    download: 'template_' + tipo + '_' + fechaHoy() + '.csv'
+  });
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('Template descargado: ' + S.materiales.length + ' materiales', 'ok');
+}
 
 function abrirActualizarMasivo() {
   csvMasivoData = null;
