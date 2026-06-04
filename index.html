@@ -258,7 +258,8 @@
         <button class="btn-acc" onclick="abrirAltaMaterial()">+ Nuevo material</button>
         <button class="btn-sec" onclick="abrirAltaMasiva()">↑ Carga masiva</button>
         <button class="btn-sec" onclick="exportarCSV()">↓ Exportar CSV</button>
-        <button class="btn-sec admin-only" onclick="abrirAuditoria()" style="display:none">Auditoría</button>
+        <button class="btn-sec" onclick="abrirActualizarMasivo()">↺ Actualizar masivo</button>
+      <button class="btn-sec admin-only" onclick="abrirAuditoria()" style="display:none">Auditoría</button>
       </div>
     </div>
   </div>
@@ -506,6 +507,34 @@
     <div class="modal-footer">
       <button class="btn-sec" onclick="cerrarOverlay('ov-masiva')">Cancelar</button>
       <button class="btn-pri" id="btn-subir-csv" onclick="submitMasiva()" disabled>Importar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: ACTUALIZACIÓN MASIVA ══════════════════════════ -->
+<div class="overlay" id="ov-actualizar-masivo">
+  <div class="modal" style="max-width:600px">
+    <div class="modal-header">
+      <h2>Actualización masiva de stocks y ubicaciones</h2>
+      <button class="close" onclick="cerrarOverlay('ov-actualizar-masivo')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="background:var(--bg);border-radius:8px;padding:12px;margin-bottom:16px;font-size:13px">
+        <strong>Formato del CSV:</strong> debe tener cabecera con <code>Codigo_SAP</code> y al menos uno de:<br>
+        <code>Cantidad_en_almacen</code> &nbsp;·&nbsp; <code>Ubicacion_en_almacen</code> &nbsp;·&nbsp;
+        <code>Stock_MIN</code> &nbsp;·&nbsp; <code>Stock_MAX</code> &nbsp;·&nbsp;
+        <code>Area</code> &nbsp;·&nbsp; <code>Observaciones</code><br>
+        <span style="color:var(--txt2)">Separador: <code>;</code> o <code>,</code> — solo se actualizan los campos presentes.</span>
+      </div>
+      <label>Archivo CSV</label>
+      <input type="file" id="inp-csv-masivo" accept=".csv,.txt" style="margin-bottom:14px"
+        onchange="parsearCSVMasivo(this)">
+      <div id="preview-masivo" style="font-size:13px;color:var(--txt2)"></div>
+      <div id="tabla-preview-masivo" style="overflow-x:auto;max-height:200px;margin-top:8px"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-sec" onclick="cerrarOverlay('ov-actualizar-masivo')">Cancelar</button>
+      <button class="btn-pri" id="btn-confirmar-masivo" onclick="submitActualizarMasivo()" disabled>Actualizar</button>
     </div>
   </div>
 </div>
@@ -982,6 +1011,116 @@ async function abrirMovimientosMat() {
       ).join('');
     }
     abrirOverlay('ov-movs-mat');
+  } catch(err) {
+    toast(err.message, 'err');
+  } finally {
+    mostrarLoading(false);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// ACTUALIZACIÓN MASIVA STOCKS / UBICACIONES
+// ═══════════════════════════════════════════════════════════
+
+let csvMasivoData = null;
+
+const ALIAS_MASIVO = {
+  codigo_sap: 'codigo_sap', sap: 'codigo_sap', cod_sap: 'codigo_sap',
+  cantidad_en_almacen: 'cantidad', cantidad: 'cantidad', stock: 'cantidad', qty: 'cantidad',
+  ubicacion_en_almacen: 'ubicacion', ubicacion: 'ubicacion', location: 'ubicacion',
+  stock_min: 'stock_min', stock_max: 'stock_max',
+  area: 'area',
+  observaciones: 'observaciones', observacion: 'observaciones'
+};
+
+function abrirActualizarMasivo() {
+  csvMasivoData = null;
+  document.getElementById('inp-csv-masivo').value = '';
+  document.getElementById('preview-masivo').textContent = '';
+  document.getElementById('tabla-preview-masivo').innerHTML = '';
+  document.getElementById('btn-confirmar-masivo').disabled = true;
+  abrirOverlay('ov-actualizar-masivo');
+}
+
+function parsearCSVMasivo(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const texto   = e.target.result;
+      const lines   = texto.replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n').filter(l => l.trim());
+      if (lines.length < 2) throw new Error('El archivo está vacío o solo tiene cabecera');
+
+      const sep     = lines[0].includes(';') ? ';' : ',';
+      const headers = lines[0].split(sep).map(function(h) {
+        return h.replace(/^["']|["']$/g,'').trim().toLowerCase()
+          .normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\s+/g,'_');
+      });
+      const mapped  = headers.map(function(h) { return ALIAS_MASIVO[h] || h; });
+
+      if (!mapped.includes('codigo_sap')) throw new Error('El CSV no tiene columna Codigo_SAP');
+
+      const camposActualizar = mapped.filter(function(f) {
+        return f !== 'codigo_sap' && ALIAS_MASIVO[f] !== undefined ||
+               ['cantidad','ubicacion','stock_min','stock_max','area','observaciones'].includes(f);
+      });
+
+      const rows = lines.slice(1).map(function(line) {
+        const vals = line.split(sep).map(function(v) { return v.replace(/^["']|["']$/g,'').trim(); });
+        const obj  = {};
+        mapped.forEach(function(k, i) { obj[k] = vals[i] !== undefined ? vals[i] : ''; });
+        return obj;
+      }).filter(function(r) { return r.codigo_sap; });
+
+      // Construir array para el backend
+      csvMasivoData = rows.map(function(r) {
+        const campos = {};
+        ['cantidad','ubicacion','stock_min','stock_max','area','observaciones'].forEach(function(f) {
+          if (r[f] !== undefined && r[f] !== '') campos[f] = f === 'cantidad' ? Number(r[f]) : r[f];
+        });
+        return { codigo_sap: r.codigo_sap, campos };
+      }).filter(function(r) { return Object.keys(r.campos).length > 0; });
+
+      // Preview
+      const colsVis = ['codigo_sap'].concat(
+        ['cantidad','ubicacion','stock_min','stock_max','area','observaciones'].filter(function(f) {
+          return csvMasivoData.some(function(r) { return r.campos[f] !== undefined; });
+        })
+      );
+
+      const thead = '<tr>' + colsVis.map(function(c) { return '<th>' + esc(c) + '</th>'; }).join('') + '</tr>';
+      const tbody = csvMasivoData.slice(0, 5).map(function(r) {
+        return '<tr>' + colsVis.map(function(c) {
+          return '<td>' + esc(c === 'codigo_sap' ? r.codigo_sap : (r.campos[c] !== undefined ? r.campos[c] : '')) + '</td>';
+        }).join('') + '</tr>';
+      }).join('');
+
+      document.getElementById('preview-masivo').textContent =
+        csvMasivoData.length + ' registros · campos: ' + colsVis.slice(1).join(', ');
+      document.getElementById('tabla-preview-masivo').innerHTML =
+        '<table class="mov-table"><thead>' + thead + '</thead><tbody>' + tbody + '</tbody></table>' +
+        (csvMasivoData.length > 5 ? '<p style="font-size:12px;color:var(--txt2);margin-top:4px">... y ' + (csvMasivoData.length - 5) + ' más</p>' : '');
+      document.getElementById('btn-confirmar-masivo').disabled = false;
+
+    } catch(err) {
+      document.getElementById('preview-masivo').textContent = 'Error: ' + err.message;
+      document.getElementById('btn-confirmar-masivo').disabled = true;
+    }
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+async function submitActualizarMasivo() {
+  if (!csvMasivoData || !csvMasivoData.length) return;
+  mostrarLoading(true);
+  try {
+    const res = await apiPost({ action: 'actualizarMasivo', actualizaciones: csvMasivoData, usuario: S.usuario });
+    if (!res.ok) throw new Error(res.error);
+    const d = res.data;
+    toast(d.actualizados + ' registros actualizados' + (d.noEncontrados ? ' · ' + d.noEncontrados + ' no encontrados' : ''), 'ok');
+    cerrarOverlay('ov-actualizar-masivo');
+    await cargarMateriales();
   } catch(err) {
     toast(err.message, 'err');
   } finally {
