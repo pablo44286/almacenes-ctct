@@ -758,15 +758,9 @@ function abrirDetalle(codigoSAP) {
     `SAP ${m.codigo_sap} — ${m.material}`;
 
   const imgSrc = driveImgUrl(m.imagen_url);
-  const imgLink = m.imagen_url
-    ? `<a href="${esc(m.imagen_url)}" target="_blank" style="font-size:12px;color:var(--pri)">↗ Abrir imagen en Drive</a>`
-    : '';
   const img = imgSrc
-    ? `<div style="margin-bottom:12px"><img class="detail-img" src="${esc(imgSrc)}" alt="imagen"
-        onerror="this.style.display='none';this.nextSibling.style.display='flex'"
-        style="margin-bottom:4px">
-        <div class="no-img" style="display:none">Sin imagen (no se pudo cargar)</div>
-        ${imgLink}</div>`
+    ? `<img class="detail-img" src="${esc(imgSrc)}" alt="imagen"
+        onerror="this.outerHTML='<div class=no-img style=margin-bottom:12px>Sin imagen</div>'">`
     : `<div class="no-img" style="margin-bottom:12px">Sin imagen</div>`;
 
   const campos = [
