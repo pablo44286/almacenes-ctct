@@ -104,6 +104,10 @@
     thead { background: var(--pri); color: #fff; }
     th { padding: 10px 12px; text-align: left; font-weight: 600; font-size: 12px;
       white-space: nowrap; }
+    th.sortable { cursor: pointer; user-select: none; }
+    th.sortable:hover { background: var(--pri-l); }
+    th.sort-asc::after  { content: ' ↑'; opacity: .9; }
+    th.sort-desc::after { content: ' ↓'; opacity: .9; }
     td { padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
     tr:last-child td { border-bottom: none; }
     tr:hover td { background: #f8fafc; }
@@ -233,6 +237,7 @@
 <div id="app">
   <header>
     <div class="logo">Almacenes <span>CTCT</span></div>
+    <span id="lbl-ultima-act" style="font-size:11px;opacity:.7;margin-right:8px"></span>
     <span class="usr" id="lbl-usuario"></span>
     <button class="logout" onclick="cerrarSesion()">Salir</button>
   </header>
@@ -272,17 +277,17 @@
   <div class="table-wrap">
     <table>
       <thead>
-        <tr>
-          <th>SAP</th>
-          <th>Material</th>
-          <th>Cód. material</th>
-          <th>Marca</th>
-          <th>Área</th>
-          <th>Ubicación</th>
-          <th>Ubic. técnica</th>
-          <th>Cantidad</th>
+        <tr id="thead-row">
+          <th class="sortable" onclick="sortarPor('codigo_sap')">SAP</th>
+          <th class="sortable" onclick="sortarPor('material')">Material</th>
+          <th class="sortable" onclick="sortarPor('codigo_material')">Cód. material</th>
+          <th class="sortable" onclick="sortarPor('marca')">Marca</th>
+          <th class="sortable" onclick="sortarPor('area')">Área</th>
+          <th class="sortable" onclick="sortarPor('ubicacion')">Ubicación</th>
+          <th class="sortable" onclick="sortarPor('ubicacion_tecnica')">Ubic. técnica</th>
+          <th class="sortable" onclick="sortarPor('cantidad')">Cantidad</th>
           <th>Observaciones</th>
-          <th>Img</th>
+          <th class="sortable" onclick="sortarPor('imagen_url')">Img</th>
           <th>Acciones</th>
         </tr>
       </thead>
@@ -583,14 +588,16 @@ const ADMIN_USER = 'Pablo Roa'; // usuario con permisos de admin
 // ESTADO
 // ═══════════════════════════════════════════════════════════
 const S = {
-  materiales: [],  // todos los materiales (cargados al inicio)
-  filtrados:  [],  // resultado de la búsqueda actual
+  materiales: [],
+  filtrados:  [],
   pagina:     0,
   POR_PAGINA: 50,
   usuario:    '',
   esAdmin:    false,
-  matActivo:  null, // material seleccionado en detalle/movimiento
-  csvData:    null  // datos parseados del CSV pendiente
+  matActivo:  null,
+  csvData:    null,
+  sortCol:    null,
+  sortDir:    1      // 1 = asc, -1 = desc
 };
 
 // ═══════════════════════════════════════════════════════════
@@ -648,14 +655,62 @@ async function cargarMateriales() {
     S.materiales = res.data || [];
     S.filtrados  = S.materiales;
     S.pagina     = 0;
+    S.sortCol    = null;
+    S.sortDir    = 1;
     actualizarStats();
     renderTabla();
+    // Última actualización en header
+    const ahora = new Date();
+    const fmt = ahora.toLocaleDateString('es-AR') + ' ' +
+      ahora.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+    document.getElementById('lbl-ultima-act').textContent = 'Actualizado: ' + fmt;
     toast(`${S.materiales.length} materiales cargados`, 'ok');
   } catch(err) {
     toast('Error al cargar materiales: ' + err.message, 'err');
   } finally {
     mostrarLoading(false);
   }
+}
+
+function sortarPor(campo) {
+  if (S.sortCol === campo) {
+    S.sortDir *= -1;
+  } else {
+    S.sortCol = campo;
+    S.sortDir = 1;
+  }
+
+  const esNumerico = campo === 'cantidad';
+  S.filtrados.sort(function(a, b) {
+    var va = a[campo] !== null && a[campo] !== undefined ? a[campo] : '';
+    var vb = b[campo] !== null && b[campo] !== undefined ? b[campo] : '';
+    if (esNumerico) {
+      va = Number(va) || 0;
+      vb = Number(vb) || 0;
+      return (va - vb) * S.sortDir;
+    }
+    // Para imagen_url: los que tienen van primero (o últimos)
+    if (campo === 'imagen_url') {
+      va = va ? 1 : 0;
+      vb = vb ? 1 : 0;
+      return (vb - va) * S.sortDir;
+    }
+    return String(va).localeCompare(String(vb), 'es', { sensitivity: 'base' }) * S.sortDir;
+  });
+
+  // Actualizar estilos de cabeceras
+  document.querySelectorAll('#thead-row th').forEach(function(th) {
+    th.classList.remove('sort-asc', 'sort-desc');
+  });
+  const ths = document.querySelectorAll('#thead-row th.sortable');
+  const campos = ['codigo_sap','material','codigo_material','marca','area','ubicacion','ubicacion_tecnica','cantidad','imagen_url'];
+  const idx = campos.indexOf(campo);
+  if (idx >= 0 && ths[idx]) {
+    ths[idx].classList.add(S.sortDir === 1 ? 'sort-asc' : 'sort-desc');
+  }
+
+  S.pagina = 0;
+  renderTabla();
 }
 
 // ═══════════════════════════════════════════════════════════
