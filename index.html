@@ -652,18 +652,18 @@ async function cargarMateriales() {
   try {
     const res = await apiGet('getTodos');
     if (!res.ok) throw new Error(res.error);
-    S.materiales = res.data || [];
+    const payload = res.data || {};
+    S.materiales = payload.materiales || [];
     S.filtrados  = S.materiales;
     S.pagina     = 0;
     S.sortCol    = null;
     S.sortDir    = 1;
     actualizarStats();
     renderTabla();
-    // Última actualización en header
-    const ahora = new Date();
-    const fmt = ahora.toLocaleDateString('es-AR') + ' ' +
-      ahora.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
-    document.getElementById('lbl-ultima-act').textContent = 'Actualizado: ' + fmt;
+    const lbl = document.getElementById('lbl-ultima-act');
+    lbl.textContent = payload.ultima_carga
+      ? 'Última carga masiva: ' + payload.ultima_carga
+      : '';
     toast(`${S.materiales.length} materiales cargados`, 'ok');
   } catch(err) {
     toast('Error al cargar materiales: ' + err.message, 'err');
