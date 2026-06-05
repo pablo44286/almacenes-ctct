@@ -183,6 +183,27 @@
       height: 120px; background: var(--bg); border-radius: 8px;
       color: var(--txt2); font-size: 12px; margin-bottom: 16px; border: 1px dashed var(--border); }
 
+    /* ── GPC ── */
+    .gpc-section { margin-top:16px; border-top:2px solid var(--border); padding-top:14px; }
+    .gpc-section h3 { font-size:13px; font-weight:700; color:var(--pri); margin-bottom:10px; }
+    .gpc-card { background:var(--bg); border:1px solid var(--border); border-radius:8px;
+      padding:12px 14px; margin-bottom:8px; }
+    .gpc-card-header { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+    .rek-badge { padding:3px 10px; border-radius:99px; font-size:11px; font-weight:700;
+      color:#fff; white-space:nowrap; }
+    .rek-I { background:#7c3aed; } /* Insurance spare */
+    .rek-T { background:#dc2626; } /* Major overhaul */
+    .rek-L { background:#d97706; } /* Long lead time */
+    .rek-R { background:#16a34a; } /* Routine */
+    .rek-U { background:#0891b2; } /* Unit shutdown */
+    .rek-other { background:#64748b; }
+    .gpc-fuente { font-size:11px; padding:2px 8px; border-radius:99px; font-weight:600; }
+    .gpc-en  { background:#dcfce7; color:#166534; }
+    .gpc-no  { background:#fee2e2; color:#991b1b; }
+    .gpc-grid { display:grid; grid-template-columns:1fr 1fr; gap:4px 16px; font-size:12px; }
+    .gpc-grid dt { color:var(--txt2); }
+    .gpc-grid dd { font-weight:500; margin:0; }
+
     /* ── Movimientos tabla ── */
     .mov-table td, .mov-table th { font-size: 12px; padding: 7px 10px; }
     .tipo-E { color: var(--ok); font-weight: 700; }
@@ -313,6 +334,7 @@
       <button class="close" onclick="cerrarOverlay('ov-detalle')">✕</button>
     </div>
     <div class="modal-body" id="det-body"></div>
+    <div id="det-gpc" style="padding:0 24px 16px"></div>
     <div class="modal-footer">
       <button class="btn-sec" onclick="abrirMovDesde()">Registrar movimiento</button>
       <button class="btn-sec admin-only" onclick="abrirEdicionDesde()" id="btn-editar-det">Editar</button>
@@ -859,6 +881,41 @@ function actualizarStats() {
 // ═══════════════════════════════════════════════════════════
 // DETALLE
 // ═══════════════════════════════════════════════════════════
+function renderGPC(items) {
+  const REK_LABELS = {
+    'I': 'Insurance spare', 'T': 'Major overhaul', 'L': 'Long lead time',
+    'R': 'Routine maintenance', 'U': 'Unit shutdown'
+  };
+  const rekClass = function(r) {
+    return ['I','T','L','R','U'].includes(r) ? 'rek-' + r : 'rek-other';
+  };
+
+  const cards = items.map(function(g) {
+    const enAlmacen = g.fuente.includes('no') === false;
+    const fuenteLabel = enAlmacen
+      ? '<span class="gpc-fuente gpc-en">✓ En almacén</span>'
+      : '<span class="gpc-fuente gpc-no">⚠ Stock 0 — Reponer</span>';
+
+    return '<div class="gpc-card">'
+      + '<div class="gpc-card-header">'
+      + '<span class="rek-badge ' + rekClass(g.rek) + '">' + esc(g.rek) + ' — ' + esc(g.rek_desc || REK_LABELS[g.rek] || '') + '</span>'
+      + fuenteLabel
+      + '</div>'
+      + '<dl class="gpc-grid">'
+      + (g.wb_item_id    ? '<dt>WB Item ID</dt><dd>' + esc(g.wb_item_id) + '</dd>' : '')
+      + (g.order_no      ? '<dt>Order No.</dt><dd>' + esc(g.order_no) + '</dd>' : '')
+      + (g.descripcion   ? '<dt>Descripción</dt><dd>' + esc(g.descripcion) + '</dd>' : '')
+      + (g.qty           ? '<dt>Qty recomendada</dt><dd>' + esc(g.qty) + ' ' + esc(g.unit) + '</dd>' : '')
+      + (g.item_id_a2a   ? '<dt>Item ID A2A</dt><dd>' + esc(g.item_id_a2a) + '</dd>' : '')
+      + (g.item_id_pbpg  ? '<dt>Item ID PB/PG</dt><dd>' + esc(g.item_id_pbpg) + '</dd>' : '')
+      + (g.caracteristicas ? '<dt>Características</dt><dd>' + esc(g.caracteristicas) + '</dd>' : '')
+      + '</dl>'
+      + '</div>';
+  }).join('');
+
+  return '<div class="gpc-section"><h3>Partes GPC — Turbina de Gas</h3>' + cards + '</div>';
+}
+
 function driveImgUrl(url) {
   if (!url) return '';
   // Extraer FILE_ID y construir URL directa de contenido
@@ -910,7 +967,16 @@ function abrirDetalle(codigoSAP) {
     img + '<div class="detail-grid">' + rows + '</div>';
 
   document.getElementById('btn-editar-det').style.display = S.esAdmin ? '' : 'none';
+  document.getElementById('det-gpc').innerHTML = '<p style="font-size:12px;color:var(--txt2)">Cargando datos GPC…</p>';
   abrirOverlay('ov-detalle');
+
+  // Cargar datos GPC en segundo plano
+  apiGet('getGPC', { codigoSAP: m.codigo_sap }).then(function(res) {
+    const gpc = (res.ok && res.data && res.data.length) ? res.data : null;
+    document.getElementById('det-gpc').innerHTML = gpc ? renderGPC(gpc) : '';
+  }).catch(function() {
+    document.getElementById('det-gpc').innerHTML = '';
+  });
 }
 
 // ═══════════════════════════════════════════════════════════
