@@ -679,7 +679,7 @@ function cerrarSesion() {
 async function cargarMateriales() {
   mostrarLoading(true);
   try {
-    const res = await apiGet('getTodos');
+    const res = await apiGet('getTodos', { t: Date.now() });
     if (!res.ok) throw new Error(res.error);
     const payload = res.data || {};
     S.materiales = payload.materiales || [];
