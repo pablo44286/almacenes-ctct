@@ -228,8 +228,10 @@
   <div class="login-card">
     <h1>Almacenes <span style="color:var(--acc)">CTCT</span></h1>
     <p>Central Térmica de Cogeneración Timbúes</p>
-    <input type="text" id="inp-usuario" placeholder="Tu nombre completo" maxlength="60">
-    <button class="btn-pri" style="width:100%" onclick="iniciarSesion()">Entrar</button>
+    <input type="text" id="inp-usuario" placeholder="Nombre completo" maxlength="60" style="margin-bottom:10px">
+    <input type="password" id="inp-password" placeholder="Contraseña (si tenés)" maxlength="30">
+    <div id="lbl-login-error" style="color:var(--err);font-size:13px;min-height:18px;margin-bottom:8px"></div>
+    <button class="btn-pri" style="width:100%" id="btn-entrar" onclick="iniciarSesion()">Entrar</button>
   </div>
 </div>
 
@@ -622,21 +624,48 @@ async function apiPost(data) {
 // ═══════════════════════════════════════════════════════════
 // LOGIN
 // ═══════════════════════════════════════════════════════════
-function iniciarSesion() {
-  const usr = document.getElementById('inp-usuario').value.trim();
-  if (!usr) { toast('Ingresá tu nombre', 'warn'); return; }
-  S.usuario = usr;
-  S.esAdmin = usr.toLowerCase() === ADMIN_USER.toLowerCase();
-  document.getElementById('login-screen').style.display = 'none';
-  document.getElementById('app').style.display = 'block';
-  document.getElementById('lbl-usuario').textContent = usr + (S.esAdmin ? ' (Admin)' : '');
-  document.querySelectorAll('.admin-only').forEach(el => {
-    el.style.display = S.esAdmin ? '' : 'none';
-  });
-  cargarMateriales();
+async function iniciarSesion() {
+  const usr  = document.getElementById('inp-usuario').value.trim();
+  const pass = document.getElementById('inp-password').value.trim();
+  const errEl = document.getElementById('lbl-login-error');
+  const btn   = document.getElementById('btn-entrar');
+
+  if (!usr) { errEl.textContent = 'Ingresá tu nombre'; return; }
+  errEl.textContent = '';
+  btn.disabled = true;
+  btn.textContent = 'Verificando…';
+
+  try {
+    const res = await apiGet('login', { usuario: usr, password: pass });
+    if (!res.ok) {
+      errEl.textContent = res.error || 'Error al iniciar sesión';
+      return;
+    }
+    if (!res.data.ok) {
+      errEl.textContent = res.data.error || 'Contraseña incorrecta';
+      return;
+    }
+    S.usuario = usr;
+    S.esAdmin = res.data.esAdmin || false;
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    document.getElementById('lbl-usuario').textContent = usr + (S.esAdmin ? ' (Admin)' : '');
+    document.querySelectorAll('.admin-only').forEach(el => {
+      el.style.display = S.esAdmin ? '' : 'none';
+    });
+    cargarMateriales();
+  } catch(err) {
+    errEl.textContent = 'Error de conexión';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Entrar';
+  }
 }
 
 document.getElementById('inp-usuario').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('inp-password').focus();
+});
+document.getElementById('inp-password').addEventListener('keydown', e => {
   if (e.key === 'Enter') iniciarSesion();
 });
 
