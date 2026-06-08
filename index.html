@@ -277,17 +277,7 @@
   <div class="toolbar">
     <div class="toolbar-row">
       <div class="search-wrap">
-        <select id="sel-campo">
-          <option value="todos">Todos los campos</option>
-          <option value="material">Descripción</option>
-          <option value="codigo_sap">Código SAP</option>
-          <option value="codigo_material">Código del material</option>
-          <option value="marca">Marca</option>
-          <option value="area">Área</option>
-          <option value="ubicacion">Ubicación en almacén</option>
-          <option value="observaciones">Observaciones</option>
-        </select>
-        <input type="text" id="inp-buscar" placeholder="Buscar materiales…" oninput="debounceBuscar()" autocomplete="off">
+        <input type="text" id="inp-buscar" placeholder="Buscar materiales…" oninput="debounceBuscar()" autocomplete="off" style="border-radius:8px;border-right:1px solid var(--border)">
       </div>
     </div>
     <div class="toolbar-row">
@@ -808,25 +798,19 @@ function toggleFiltroGPC() {
 }
 
 function ejecutarBusqueda() {
-  const q     = document.getElementById('inp-buscar').value.trim().toLowerCase();
-  const campo = document.getElementById('sel-campo').value;
+  const q = document.getElementById('inp-buscar').value.trim().toLowerCase();
   const CAMPOS_BUSQUEDA = ['material','codigo_sap','codigo_material','marca','area','ubicacion','observaciones'];
 
   let base = S.materiales;
 
-  // Filtro GPC
   if (S.filtroGPC) {
     base = base.filter(function(m) { return S.gpcSaps.has(String(m.codigo_sap)); });
   }
 
-  if (!q) {
-    S.filtrados = base;
-  } else {
-    S.filtrados = base.filter(function(m) {
-      const targets = campo === 'todos' ? CAMPOS_BUSQUEDA : [campo];
-      return targets.some(function(f) { return String(m[f] || '').toLowerCase().includes(q); });
-    });
-  }
+  S.filtrados = !q ? base : base.filter(function(m) {
+    return CAMPOS_BUSQUEDA.some(function(f) { return String(m[f] || '').toLowerCase().includes(q); });
+  });
+
   S.pagina = 0;
   actualizarStats();
   renderTabla();
