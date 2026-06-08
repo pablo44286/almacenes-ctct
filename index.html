@@ -228,6 +228,34 @@
       border-radius:8px; box-shadow:0 8px 40px rgba(0,0,0,.5); }
     .zoomable { cursor:zoom-in; }
 
+    /* ── Scanner ── */
+    .btn-scan {
+      background: var(--acc); color: #fff; border: none;
+      border-radius: 0 8px 8px 0; padding: 0 14px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: opacity .15s; flex-shrink: 0;
+    }
+    .btn-scan:hover { opacity: .85; }
+    .scan-viewport {
+      position: relative; background: #000; border-radius: 8px;
+      overflow: hidden; aspect-ratio: 4/3; max-height: 60vh;
+    }
+    .scan-viewport video { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .scan-line {
+      position: absolute; left: 8%; right: 8%; height: 2px;
+      background: var(--acc); box-shadow: 0 0 6px var(--acc);
+      animation: scanMove 2s ease-in-out infinite; pointer-events: none;
+    }
+    @keyframes scanMove { 0%,100% { top: 15%; } 50% { top: 82%; } }
+    .scan-corner {
+      position: absolute; width: 24px; height: 24px;
+      border: 3px solid var(--acc); pointer-events: none;
+    }
+    .scan-corner.tl { top: 10px; left: 10px; border-right: none; border-bottom: none; border-radius: 3px 0 0 0; }
+    .scan-corner.tr { top: 10px; right: 10px; border-left: none; border-bottom: none; border-radius: 0 3px 0 0; }
+    .scan-corner.bl { bottom: 10px; left: 10px; border-right: none; border-top: none; border-radius: 0 0 0 3px; }
+    .scan-corner.br { bottom: 10px; right: 10px; border-left: none; border-top: none; border-radius: 0 0 3px 0; }
+
     /* ── Loading ── */
     .loading-overlay {
       position: fixed; inset: 0; background: rgba(255,255,255,.7);
@@ -277,7 +305,13 @@
   <div class="toolbar">
     <div class="toolbar-row">
       <div class="search-wrap">
-        <input type="text" id="inp-buscar" placeholder="Buscar materiales…" oninput="debounceBuscar()" autocomplete="off" style="border-radius:8px;border-right:1px solid var(--border)">
+        <input type="text" id="inp-buscar" placeholder="Buscar materiales…" oninput="debounceBuscar()" autocomplete="off" style="border-radius:8px 0 0 8px;border-right:none">
+        <button class="btn-scan" onclick="abrirScanner()" title="Escanear etiqueta SAP con cámara">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+            <circle cx="12" cy="13" r="4"/>
+          </svg>
+        </button>
       </div>
     </div>
     <div class="toolbar-row">
@@ -599,6 +633,33 @@
   </div>
 </div>
 
+<!-- ══ MODAL: SCANNER ════════════════════════════════════════ -->
+<div class="overlay" id="ov-scanner">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <h2>Escanear etiqueta SAP</h2>
+      <button class="close" onclick="cerrarScanner()">✕</button>
+    </div>
+    <div class="modal-body" style="padding:16px">
+      <div class="scan-viewport" id="scan-viewport">
+        <video id="scanner-video" playsinline muted autoplay></video>
+        <div class="scan-line"></div>
+        <div class="scan-corner tl"></div>
+        <div class="scan-corner tr"></div>
+        <div class="scan-corner bl"></div>
+        <div class="scan-corner br"></div>
+      </div>
+      <p id="scanner-status" style="text-align:center;margin-top:12px;font-size:13px;color:var(--txt2)">
+        Apuntá la cámara a la etiqueta con el código SAP
+      </p>
+      <p id="scanner-result" style="text-align:center;font-size:15px;font-weight:700;color:var(--pri);min-height:22px"></p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-sec" onclick="cerrarScanner()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
 <!-- ══ LIGHTBOX ══════════════════════════════════════════════ -->
 <div id="lightbox" onclick="cerrarLightbox()">
   <img id="lightbox-img" src="" alt="zoom">
@@ -608,6 +669,7 @@
 <div class="loading-overlay" id="loading"><div class="spinner"></div></div>
 <div id="toast-wrap"></div>
 
+<script src="https://unpkg.com/@zxing/library@0.20.0/umd/index.min.js"></script>
 <script>
 // ═══════════════════════════════════════════════════════════
 // CONFIGURACIÓN — reemplazar con la URL del deploy de Apps Script
@@ -629,8 +691,10 @@ const S = {
   csvData:    null,
   sortCol:    null,
   sortDir:    1,     // 1 = asc, -1 = desc
-  gpcSaps:    new Set(),
-  filtroGPC:  false
+  gpcSaps:       new Set(),
+  gpcReponerSaps:new Set(),
+  filtroGPC:     false,
+  filtroReponer: false
 };
 
 // ═══════════════════════════════════════════════════════════
@@ -1529,6 +1593,77 @@ async function abrirAuditoria() {
   } finally {
     mostrarLoading(false);
   }
+}
+
+// ═══════════════════════════════════════════════════════════
+// SCANNER DE CÓDIGO DE BARRAS / QR
+// ═══════════════════════════════════════════════════════════
+let scannerActivo = false;
+let zxingReader   = null;
+
+async function abrirScanner() {
+  if (!window.ZXing) {
+    toast('Librería de escaneo no disponible', 'err');
+    return;
+  }
+  abrirOverlay('ov-scanner');
+  document.getElementById('scanner-result').textContent = '';
+  document.getElementById('scanner-status').textContent = 'Iniciando cámara…';
+
+  try {
+    zxingReader = new ZXing.BrowserMultiFormatReader();
+    scannerActivo = true;
+
+    await zxingReader.decodeFromConstraints(
+      {
+        video: {
+          facingMode: { ideal: 'environment' },
+          width:  { ideal: 1280 },
+          height: { ideal: 720 }
+        }
+      },
+      'scanner-video',
+      function(result, err) {
+        if (!scannerActivo) return;
+
+        if (result) {
+          const texto = result.getText().trim();
+          // Extraer secuencia numérica principal (código SAP suele ser numérico)
+          const soloNum = texto.replace(/\D/g, '');
+          const sapCandidato = soloNum.length >= 4 ? soloNum : texto;
+
+          document.getElementById('scanner-result').textContent = 'Detectado: ' + sapCandidato;
+          cerrarScanner();
+          document.getElementById('inp-buscar').value = sapCandidato;
+          ejecutarBusqueda();
+          toast('Código escaneado: ' + sapCandidato, 'ok');
+          return;
+        }
+
+        if (err && !(err instanceof ZXing.NotFoundException)) {
+          document.getElementById('scanner-status').textContent = 'Error de cámara: ' + err.message;
+        }
+      }
+    );
+
+    document.getElementById('scanner-status').textContent = 'Apuntá la cámara a la etiqueta con el código SAP';
+
+  } catch(err) {
+    const msg = err.name === 'NotAllowedError'
+      ? 'Permiso de cámara denegado. Habilitá el acceso desde el navegador.'
+      : 'No se pudo acceder a la cámara: ' + err.message;
+    document.getElementById('scanner-status').textContent = msg;
+    toast(msg, 'err');
+  }
+}
+
+function cerrarScanner() {
+  scannerActivo = false;
+  if (zxingReader) {
+    try { zxingReader.reset(); } catch(e) {}
+    zxingReader = null;
+  }
+  cerrarOverlay('ov-scanner');
 }
 
 // ═══════════════════════════════════════════════════════════
