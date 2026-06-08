@@ -936,6 +936,9 @@ function renderGPC(items) {
           + (g.subsistema_es ? ' — ' + esc(g.subsistema_es) : '')
           + (g.cobertura ? ' <span style="margin-left:8px;font-weight:600">Cobertura: ' + esc(g.cobertura) + '</span>' : '')
           + '</div>' : '')
+      + (g.imagen_gpc ? '<img src="' + esc(g.imagen_gpc) + '" alt="Diagrama ' + esc(g.wb_item_id) + '"'
+          + ' style="width:100%;max-height:340px;object-fit:contain;border:1px solid var(--border);border-radius:6px;margin-bottom:10px;background:#fff"'
+          + ' onerror="this.style.display=\'none\'">' : '')
       + '<dl class="gpc-grid">'
       + (g.order_no      ? '<dt>Order No.</dt><dd>' + esc(g.order_no) + '</dd>' : '')
       + (g.descripcion   ? '<dt>Descripción</dt><dd>' + esc(g.descripcion) + '</dd>' : '')
