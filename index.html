@@ -1611,7 +1611,20 @@ async function abrirScanner() {
   document.getElementById('scanner-status').textContent = 'Iniciando cámara…';
 
   try {
-    zxingReader = new ZXing.BrowserMultiFormatReader();
+    const hints = new Map();
+    hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
+      ZXing.BarcodeFormat.CODE_128,
+      ZXing.BarcodeFormat.CODE_39,
+      ZXing.BarcodeFormat.ITF,
+      ZXing.BarcodeFormat.QR_CODE,
+      ZXing.BarcodeFormat.EAN_13,
+      ZXing.BarcodeFormat.EAN_8,
+      ZXing.BarcodeFormat.DATA_MATRIX,
+      ZXing.BarcodeFormat.PDF_417,
+      ZXing.BarcodeFormat.CODABAR,
+    ]);
+    hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+    zxingReader = new ZXing.BrowserMultiFormatReader(hints, 100);
     scannerActivo = true;
 
     await zxingReader.decodeFromConstraints(
