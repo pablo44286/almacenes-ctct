@@ -220,6 +220,14 @@
     .toast.err  { background: var(--err); }
     .toast.warn { background: var(--warn); }
 
+    /* ── Lightbox ── */
+    #lightbox { position:fixed; inset:0; background:rgba(0,0,0,.92); z-index:9999;
+      display:none; align-items:center; justify-content:center; cursor:zoom-out; }
+    #lightbox.open { display:flex; }
+    #lightbox img { max-width:95vw; max-height:95vh; object-fit:contain;
+      border-radius:8px; box-shadow:0 8px 40px rgba(0,0,0,.5); }
+    .zoomable { cursor:zoom-in; }
+
     /* ── Loading ── */
     .loading-overlay {
       position: fixed; inset: 0; background: rgba(255,255,255,.7);
@@ -600,6 +608,11 @@
   </div>
 </div>
 
+<!-- ══ LIGHTBOX ══════════════════════════════════════════════ -->
+<div id="lightbox" onclick="cerrarLightbox()">
+  <img id="lightbox-img" src="" alt="zoom">
+</div>
+
 <!-- ══ LOADING / TOAST ═══════════════════════════════════════ -->
 <div class="loading-overlay" id="loading"><div class="spinner"></div></div>
 <div id="toast-wrap"></div>
@@ -963,7 +976,8 @@ function renderGPC(items) {
       const div = document.getElementById('gpc-img-' + wbId);
       if (!div) return;
       if (res.ok && res.data && res.data.b64) {
-        div.innerHTML = '<img src="' + res.data.b64 + '" alt="Diagrama"'
+        div.innerHTML = '<img src="' + res.data.b64 + '" alt="Diagrama" class="zoomable"'
+          + ' onclick="abrirLightbox(this.src)"'
           + ' style="width:100%;max-height:340px;object-fit:contain;border:1px solid var(--border);border-radius:6px;background:#fff;display:block">';
       } else {
         div.innerHTML = '';
@@ -976,6 +990,18 @@ function renderGPC(items) {
 
   return html;
 }
+
+function abrirLightbox(src) {
+  document.getElementById('lightbox-img').src = src;
+  document.getElementById('lightbox').classList.add('open');
+}
+function cerrarLightbox() {
+  document.getElementById('lightbox').classList.remove('open');
+  document.getElementById('lightbox-img').src = '';
+}
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') cerrarLightbox();
+});
 
 function driveImgUrl(url) {
   if (!url) return '';
@@ -995,7 +1021,8 @@ function abrirDetalle(codigoSAP) {
 
   const imgSrc = driveImgUrl(m.imagen_url);
   const img = imgSrc
-    ? `<img class="detail-img" src="${esc(imgSrc)}" alt="imagen"
+    ? `<img class="detail-img zoomable" src="${esc(imgSrc)}" alt="imagen"
+        onclick="abrirLightbox(this.src)"
         onerror="this.outerHTML='<div class=no-img style=margin-bottom:12px>Sin imagen</div>'">`
     : `<div class="no-img" style="margin-bottom:12px">Sin imagen</div>`;
 
