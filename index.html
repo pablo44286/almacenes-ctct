@@ -241,20 +241,18 @@
       overflow: hidden; aspect-ratio: 4/3; max-height: 60vh;
     }
     .scan-viewport video { width: 100%; height: 100%; object-fit: cover; display: block; }
-    .scan-line {
-      position: absolute; left: 8%; right: 8%; height: 2px;
-      background: var(--acc); box-shadow: 0 0 6px var(--acc);
-      animation: scanMove 2s ease-in-out infinite; pointer-events: none;
+    .scan-guide-rect {
+      position: absolute; left: 8%; right: 8%;
+      top: 50%; transform: translateY(-50%); height: 58px;
+      border: 2px solid var(--acc); border-radius: 6px;
+      box-shadow: 0 0 0 9999px rgba(0,0,0,.5);
+      pointer-events: none;
     }
-    @keyframes scanMove { 0%,100% { top: 15%; } 50% { top: 82%; } }
-    .scan-corner {
-      position: absolute; width: 24px; height: 24px;
-      border: 3px solid var(--acc); pointer-events: none;
+    .scan-guide-hint {
+      position: absolute; bottom: 10px; left: 0; right: 0;
+      text-align: center; color: #fff; font-size: 12px;
+      text-shadow: 0 1px 3px rgba(0,0,0,.9); pointer-events: none;
     }
-    .scan-corner.tl { top: 10px; left: 10px; border-right: none; border-bottom: none; border-radius: 3px 0 0 0; }
-    .scan-corner.tr { top: 10px; right: 10px; border-left: none; border-bottom: none; border-radius: 0 3px 0 0; }
-    .scan-corner.bl { bottom: 10px; left: 10px; border-right: none; border-top: none; border-radius: 0 0 0 3px; }
-    .scan-corner.br { bottom: 10px; right: 10px; border-left: none; border-top: none; border-radius: 0 0 3px 0; }
 
     /* ── Loading ── */
     .loading-overlay {
@@ -637,28 +635,31 @@
 <div class="overlay" id="ov-scanner">
   <div class="modal" style="max-width:420px">
     <div class="modal-header">
-      <h2>Escanear etiqueta SAP</h2>
+      <h2>Escanear número SAP</h2>
       <button class="close" onclick="cerrarScanner()">✕</button>
     </div>
     <div class="modal-body" style="padding:16px">
       <div class="scan-viewport" id="scan-viewport">
         <video id="scanner-video" playsinline muted autoplay></video>
-        <div class="scan-line"></div>
-        <div class="scan-corner tl"></div>
-        <div class="scan-corner tr"></div>
-        <div class="scan-corner bl"></div>
-        <div class="scan-corner br"></div>
+        <div class="scan-guide-rect"></div>
+        <p class="scan-guide-hint">Centrá el número SAP en el recuadro</p>
       </div>
       <p id="scanner-status" style="text-align:center;margin-top:12px;font-size:13px;color:var(--txt2)">
-        Apuntá la cámara a la etiqueta con el código SAP
+        Apuntá la cámara al número SAP impreso
       </p>
       <p id="scanner-result" style="text-align:center;font-size:15px;font-weight:700;color:var(--pri);min-height:22px"></p>
+      <div style="text-align:center;margin-top:8px">
+        <button id="btn-capturar-manual" class="btn-sec" onclick="capturarManual()" style="display:none">
+          Capturar manualmente
+        </button>
+      </div>
     </div>
     <div class="modal-footer">
       <button class="btn-sec" onclick="cerrarScanner()">Cancelar</button>
     </div>
   </div>
 </div>
+<canvas id="scanner-canvas" style="display:none"></canvas>
 
 <!-- ══ LIGHTBOX ══════════════════════════════════════════════ -->
 <div id="lightbox" onclick="cerrarLightbox()">
@@ -669,7 +670,7 @@
 <div class="loading-overlay" id="loading"><div class="spinner"></div></div>
 <div id="toast-wrap"></div>
 
-<script src="https://unpkg.com/@zxing/library@0.20.0/umd/index.min.js"></script>
+<script src="https://unpkg.com/tesseract.js@4/dist/tesseract.min.js"></script>
 <script>
 // ═══════════════════════════════════════════════════════════
 // CONFIGURACIÓN — reemplazar con la URL del deploy de Apps Script
@@ -749,6 +750,12 @@ async function iniciarSesion() {
       el.style.display = S.esAdmin ? '' : 'none';
     });
     cargarMateriales();
+    // Ocultar botón de cámara si el navegador no soporta getUserMedia
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      document.querySelectorAll('.btn-scan').forEach(function(b) { b.style.display = 'none'; });
+    } else {
+      inicializarTesseract(); // inicializar worker en segundo plano
+    }
     // Cargar SAP codes de GPC en paralelo
     apiGet('getGPCSaps').then(function(res) {
       if (res.ok && Array.isArray(res.data)) {
@@ -1596,86 +1603,150 @@ async function abrirAuditoria() {
 }
 
 // ═══════════════════════════════════════════════════════════
-// SCANNER DE CÓDIGO DE BARRAS / QR
+// SCANNER OCR (Tesseract.js)
 // ═══════════════════════════════════════════════════════════
-let scannerActivo = false;
-let zxingReader   = null;
+let tesseractWorker = null;
+let tesseractListo  = false;
+let scannerStream   = null;
+let scannerTimer    = null;
+let scannerTimeout  = null;
+let scannerOcupado  = false;
+
+async function inicializarTesseract() {
+  if (!window.Tesseract || tesseractWorker) return;
+  try {
+    tesseractWorker = await Tesseract.createWorker('eng', 1);
+    await tesseractWorker.setParameters({
+      tessedit_char_whitelist: '0123456789',
+      tessedit_pageseg_mode:   '7',
+    });
+    tesseractListo = true;
+  } catch(err) {
+    console.error('Tesseract init:', err);
+  }
+}
 
 async function abrirScanner() {
-  if (!window.ZXing) {
-    toast('Librería de escaneo no disponible', 'err');
+  if (!window.Tesseract) {
+    toast('OCR no disponible en este navegador', 'err');
     return;
   }
   abrirOverlay('ov-scanner');
   document.getElementById('scanner-result').textContent = '';
   document.getElementById('scanner-status').textContent = 'Iniciando cámara…';
+  document.getElementById('btn-capturar-manual').style.display = 'none';
+  document.getElementById('btn-capturar-manual').disabled = false;
+  scannerOcupado = false;
 
   try {
-    const hints = new Map();
-    hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
-      ZXing.BarcodeFormat.CODE_128,
-      ZXing.BarcodeFormat.CODE_39,
-      ZXing.BarcodeFormat.ITF,
-      ZXing.BarcodeFormat.QR_CODE,
-      ZXing.BarcodeFormat.EAN_13,
-      ZXing.BarcodeFormat.EAN_8,
-      ZXing.BarcodeFormat.DATA_MATRIX,
-      ZXing.BarcodeFormat.PDF_417,
-      ZXing.BarcodeFormat.CODABAR,
-    ]);
-    hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
-    zxingReader = new ZXing.BrowserMultiFormatReader(hints, 100);
-    scannerActivo = true;
+    scannerStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
+    });
+    const video = document.getElementById('scanner-video');
+    video.srcObject = scannerStream;
+    await video.play();
 
-    await zxingReader.decodeFromConstraints(
-      {
-        video: {
-          facingMode: { ideal: 'environment' },
-          width:  { ideal: 1280 },
-          height: { ideal: 720 }
-        }
-      },
-      'scanner-video',
-      function(result, err) {
-        if (!scannerActivo) return;
+    if (!tesseractListo) {
+      document.getElementById('scanner-status').textContent = 'Cargando OCR… (primera vez, esperá un momento)';
+      await inicializarTesseract();
+    }
 
-        if (result) {
-          const texto = result.getText().trim();
-          // Extraer secuencia numérica principal (código SAP suele ser numérico)
-          const soloNum = texto.replace(/\D/g, '');
-          const sapCandidato = soloNum.length >= 4 ? soloNum : texto;
-
-          document.getElementById('scanner-result').textContent = 'Detectado: ' + sapCandidato;
-          cerrarScanner();
-          document.getElementById('inp-buscar').value = sapCandidato;
-          ejecutarBusqueda();
-          toast('Código escaneado: ' + sapCandidato, 'ok');
-          return;
-        }
-
-        if (err && !(err instanceof ZXing.NotFoundException)) {
-          document.getElementById('scanner-status').textContent = 'Error de cámara: ' + err.message;
-        }
+    document.getElementById('scanner-status').textContent = 'Buscando número…';
+    scannerTimer   = setInterval(capturarYProcesar, 1500);
+    scannerTimeout = setTimeout(function() {
+      document.getElementById('btn-capturar-manual').style.display = '';
+      if (!scannerOcupado) {
+        document.getElementById('scanner-status').textContent = 'No detectado. Usá "Capturar manualmente".';
       }
-    );
-
-    document.getElementById('scanner-status').textContent = 'Apuntá la cámara a la etiqueta con el código SAP';
+    }, 15000);
 
   } catch(err) {
     const msg = err.name === 'NotAllowedError'
-      ? 'Permiso de cámara denegado. Habilitá el acceso desde el navegador.'
-      : 'No se pudo acceder a la cámara: ' + err.message;
+      ? 'Permiso de cámara denegado. Habilitalo desde el navegador.'
+      : 'No se pudo acceder a la cámara.';
     document.getElementById('scanner-status').textContent = msg;
-    toast(msg, 'err');
   }
 }
 
-function cerrarScanner() {
-  scannerActivo = false;
-  if (zxingReader) {
-    try { zxingReader.reset(); } catch(e) {}
-    zxingReader = null;
+async function capturarYProcesar() {
+  if (scannerOcupado || !tesseractListo) return;
+  scannerOcupado = true;
+  try {
+    const video  = document.getElementById('scanner-video');
+    const canvas = document.getElementById('scanner-canvas');
+    const vw = video.videoWidth, vh = video.videoHeight;
+    if (!vw || !vh) { scannerOcupado = false; return; }
+
+    // Recortar zona del recuadro guía (84% ancho, 28% alto, centrado)
+    const rw = Math.floor(vw * 0.84);
+    const rh = Math.min(Math.floor(vh * 0.28), 130);
+    const rx = Math.floor((vw - rw) / 2);
+    const ry = Math.floor((vh - rh) / 2);
+    canvas.width  = rw;
+    canvas.height = rh;
+    canvas.getContext('2d').drawImage(video, rx, ry, rw, rh, 0, 0, rw, rh);
+
+    document.getElementById('scanner-status').textContent = 'Procesando…';
+    const { data: { text } } = await tesseractWorker.recognize(canvas);
+    const match = text.replace(/\s/g, '').match(/\d{10}/);
+
+    if (match) {
+      onSapEncontrado(match[0]);
+    } else {
+      document.getElementById('scanner-status').textContent = 'Buscando número…';
+    }
+  } catch(err) {
+    document.getElementById('scanner-status').textContent = 'Buscando número…';
+  } finally {
+    scannerOcupado = false;
   }
+}
+
+async function capturarManual() {
+  if (!tesseractListo) return;
+  const btn = document.getElementById('btn-capturar-manual');
+  btn.disabled = true;
+  document.getElementById('scanner-status').textContent = 'Procesando imagen completa…';
+  scannerOcupado = true;
+  try {
+    const video  = document.getElementById('scanner-video');
+    const canvas = document.getElementById('scanner-canvas');
+    canvas.width  = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0);
+    const { data: { text } } = await tesseractWorker.recognize(canvas);
+    const match = text.replace(/\s/g, '').match(/\d{10}/);
+    if (match) {
+      onSapEncontrado(match[0]);
+    } else {
+      document.getElementById('scanner-status').textContent = 'No se encontró número SAP. Intentá de nuevo.';
+      btn.disabled = false;
+    }
+  } catch(err) {
+    document.getElementById('scanner-status').textContent = 'Error al procesar. Intentá de nuevo.';
+    btn.disabled = false;
+  } finally {
+    scannerOcupado = false;
+  }
+}
+
+function onSapEncontrado(sap) {
+  cerrarScanner();
+  document.getElementById('inp-buscar').value = sap;
+  ejecutarBusqueda();
+  toast('SAP detectado: ' + sap, 'ok');
+}
+
+function cerrarScanner() {
+  clearInterval(scannerTimer);
+  clearTimeout(scannerTimeout);
+  scannerTimer = scannerTimeout = null;
+  scannerOcupado = false;
+  if (scannerStream) {
+    scannerStream.getTracks().forEach(t => t.stop());
+    scannerStream = null;
+  }
+  document.getElementById('scanner-video').srcObject = null;
   cerrarOverlay('ov-scanner');
 }
 
