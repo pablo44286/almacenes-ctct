@@ -921,14 +921,22 @@ function renderGPC(items) {
       ? '<span class="gpc-fuente gpc-en">✓ En almacén</span>'
       : '<span class="gpc-fuente gpc-no">⚠ Stock 0 — Reponer</span>';
 
+    const estadoColor = g.estado.includes('OK') ? '#16a34a'
+      : g.estado.includes('Parcial') ? '#d97706' : g.estado.includes('tico') ? '#dc2626' : '#64748b';
+
     return '<div class="gpc-card">'
       + '<div class="gpc-card-header">'
       + (g.wb_item_id ? '<code style="font-size:12px;font-weight:700;color:var(--pri)">' + esc(g.wb_item_id) + '</code>' : '')
       + '<span class="rek-badge ' + rekClass(g.rek) + '">' + esc(g.rek) + ' — ' + esc(g.rek_desc || REK_LABELS[g.rek] || '') + '</span>'
       + fuenteLabel
+      + (g.estado ? '<span style="font-size:12px;font-weight:600;color:' + estadoColor + '">' + esc(g.estado) + '</span>' : '')
       + '</div>'
+      + (g.grupo || g.subsistema_es ? '<div style="font-size:12px;color:var(--txt2);margin-bottom:8px">'
+          + (g.grupo ? '<strong>' + esc(g.grupo) + '</strong>' : '')
+          + (g.subsistema_es ? ' — ' + esc(g.subsistema_es) : '')
+          + (g.cobertura ? ' <span style="margin-left:8px;font-weight:600">Cobertura: ' + esc(g.cobertura) + '</span>' : '')
+          + '</div>' : '')
       + '<dl class="gpc-grid">'
-      + (g.wb_item_id    ? '<dt>WB Item ID</dt><dd>' + esc(g.wb_item_id) + '</dd>' : '')
       + (g.order_no      ? '<dt>Order No.</dt><dd>' + esc(g.order_no) + '</dd>' : '')
       + (g.descripcion   ? '<dt>Descripción</dt><dd>' + esc(g.descripcion) + '</dd>' : '')
       + (g.qty           ? '<dt>Qty recomendada</dt><dd>' + esc(g.qty) + ' ' + esc(g.unit) + '</dd>' : '')
