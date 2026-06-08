@@ -937,9 +937,9 @@ function renderGPC(items) {
           + (g.cobertura ? ' <span style="margin-left:8px;font-weight:600">Cobertura: ' + esc(g.cobertura) + '</span>' : '')
           + '</div>' : '')
       + (g.imagen_gpc
-          ? '<img src="' + g.imagen_gpc + '" alt="Diagrama"'
-            + ' style="width:100%;max-height:340px;object-fit:contain;border:1px solid var(--border);border-radius:6px;background:#fff;display:block;margin-bottom:10px"'
-            + ' onerror="this.style.display=\'none\'">'
+          ? '<div id="gpc-img-' + esc(g.imagen_gpc) + '" style="margin-bottom:10px">'
+            + '<span style="font-size:12px;color:var(--txt2)">Cargando diagrama...</span>'
+            + '</div>'
           : '')
       + '<dl class="gpc-grid">'
       + (g.order_no      ? '<dt>Order No.</dt><dd>' + esc(g.order_no) + '</dd>' : '')
@@ -952,7 +952,27 @@ function renderGPC(items) {
       + '</div>';
   }).join('');
 
-  return '<div class="gpc-section"><h3>Partes GPC — Turbina de Gas</h3>' + cards + '</div>';
+  const html = '<div class="gpc-section"><h3>Partes GPC — Turbina de Gas</h3>' + cards + '</div>';
+
+  // Cargar imágenes en segundo plano
+  const wbIds = [...new Set(items.filter(function(g) { return g.imagen_gpc; }).map(function(g) { return g.imagen_gpc; }))];
+  wbIds.forEach(function(wbId) {
+    apiGet('getGPCImagen', { wbItemId: wbId }).then(function(res) {
+      const div = document.getElementById('gpc-img-' + wbId);
+      if (!div) return;
+      if (res.ok && res.data && res.data.b64) {
+        div.innerHTML = '<img src="' + res.data.b64 + '" alt="Diagrama"'
+          + ' style="width:100%;max-height:340px;object-fit:contain;border:1px solid var(--border);border-radius:6px;background:#fff;display:block">';
+      } else {
+        div.innerHTML = '';
+      }
+    }).catch(function() {
+      const div = document.getElementById('gpc-img-' + wbId);
+      if (div) div.innerHTML = '';
+    });
+  });
+
+  return html;
 }
 
 function driveImgUrl(url) {
