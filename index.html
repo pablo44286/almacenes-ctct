@@ -286,7 +286,8 @@
         <button class="btn-acc" onclick="abrirAltaMaterial()">+ Nuevo material</button>
         <button class="btn-sec" onclick="abrirAltaMasiva()">↑ Carga masiva</button>
         <button class="btn-sec" onclick="exportarCSV()">↓ Exportar CSV</button>
-        <button class="btn-sec" onclick="abrirActualizarMasivo()">↺ Actualizar masivo</button>
+        <button class="btn-sec" id="btn-filtro-gpc" onclick="toggleFiltroGPC()">⚙ Solo GPC</button>
+      <button class="btn-sec" onclick="abrirActualizarMasivo()">↺ Actualizar masivo</button>
       <button class="btn-sec admin-only" onclick="abrirAuditoria()" style="display:none">Auditoría</button>
       </div>
     </div>
@@ -621,7 +622,9 @@ const S = {
   matActivo:  null,
   csvData:    null,
   sortCol:    null,
-  sortDir:    1      // 1 = asc, -1 = desc
+  sortDir:    1,     // 1 = asc, -1 = desc
+  gpcSaps:    new Set(),
+  filtroGPC:  false
 };
 
 // ═══════════════════════════════════════════════════════════
@@ -676,6 +679,12 @@ async function iniciarSesion() {
       el.style.display = S.esAdmin ? '' : 'none';
     });
     cargarMateriales();
+    // Cargar SAP codes de GPC en paralelo
+    apiGet('getGPCSaps').then(function(res) {
+      if (res.ok && Array.isArray(res.data)) {
+        S.gpcSaps = new Set(res.data.map(String));
+      }
+    });
   } catch(err) {
     errEl.textContent = 'Error de conexión';
   } finally {
@@ -773,17 +782,33 @@ function debounceBuscar() {
   buscarTimer = setTimeout(ejecutarBusqueda, 200);
 }
 
+function toggleFiltroGPC() {
+  S.filtroGPC = !S.filtroGPC;
+  const btn = document.getElementById('btn-filtro-gpc');
+  btn.style.background    = S.filtroGPC ? 'var(--pri)' : '';
+  btn.style.color         = S.filtroGPC ? '#fff' : '';
+  btn.style.borderColor   = S.filtroGPC ? 'var(--pri)' : '';
+  ejecutarBusqueda();
+}
+
 function ejecutarBusqueda() {
   const q     = document.getElementById('inp-buscar').value.trim().toLowerCase();
   const campo = document.getElementById('sel-campo').value;
   const CAMPOS_BUSQUEDA = ['material','codigo_sap','codigo_material','marca','area','ubicacion','observaciones'];
 
+  let base = S.materiales;
+
+  // Filtro GPC
+  if (S.filtroGPC) {
+    base = base.filter(function(m) { return S.gpcSaps.has(String(m.codigo_sap)); });
+  }
+
   if (!q) {
-    S.filtrados = S.materiales;
+    S.filtrados = base;
   } else {
-    S.filtrados = S.materiales.filter(m => {
+    S.filtrados = base.filter(function(m) {
       const targets = campo === 'todos' ? CAMPOS_BUSQUEDA : [campo];
-      return targets.some(f => String(m[f] || '').toLowerCase().includes(q));
+      return targets.some(function(f) { return String(m[f] || '').toLowerCase().includes(q); });
     });
   }
   S.pagina = 0;
