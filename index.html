@@ -1618,12 +1618,32 @@ async function inicializarTesseract() {
     tesseractWorker = await Tesseract.createWorker('eng', 1);
     await tesseractWorker.setParameters({
       tessedit_char_whitelist: '0123456789',
-      tessedit_pageseg_mode:   '7',
+      tessedit_pageseg_mode:   '6',   // bloque uniforme — más tolerante que línea única
     });
     tesseractListo = true;
   } catch(err) {
     console.error('Tesseract init:', err);
   }
+}
+
+function prepararCanvas(video, rx, ry, rw, rh) {
+  const canvas = document.getElementById('scanner-canvas');
+  const scale  = 2;                       // upscale 2x para mejor OCR
+  canvas.width  = rw * scale;
+  canvas.height = rh * scale;
+  const ctx = canvas.getContext('2d');
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(video, rx, ry, rw, rh, 0, 0, canvas.width, canvas.height);
+  // Convertir a escala de grises
+  const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const px  = img.data;
+  for (let i = 0; i < px.length; i += 4) {
+    const g = Math.round(0.299 * px[i] + 0.587 * px[i+1] + 0.114 * px[i+2]);
+    px[i] = px[i+1] = px[i+2] = g;
+  }
+  ctx.putImageData(img, 0, 0);
+  return canvas;
 }
 
 async function abrirScanner() {
@@ -1649,10 +1669,14 @@ async function abrirScanner() {
     if (!tesseractListo) {
       document.getElementById('scanner-status').textContent = 'Cargando OCR… (primera vez, esperá un momento)';
       await inicializarTesseract();
+      if (!tesseractListo) {
+        document.getElementById('scanner-status').textContent = 'Error al cargar OCR. Usá "Capturar manualmente".';
+        document.getElementById('btn-capturar-manual').style.display = '';
+      }
     }
 
     document.getElementById('scanner-status').textContent = 'Buscando número…';
-    scannerTimer   = setInterval(capturarYProcesar, 1500);
+    scannerTimer   = setInterval(capturarYProcesar, 2000);
     scannerTimeout = setTimeout(function() {
       document.getElementById('btn-capturar-manual').style.display = '';
       if (!scannerOcupado) {
@@ -1670,21 +1694,17 @@ async function abrirScanner() {
 
 async function capturarYProcesar() {
   if (scannerOcupado || !tesseractListo) return;
+  const video = document.getElementById('scanner-video');
+  if (video.readyState < 2) return;
   scannerOcupado = true;
   try {
-    const video  = document.getElementById('scanner-video');
-    const canvas = document.getElementById('scanner-canvas');
     const vw = video.videoWidth, vh = video.videoHeight;
     if (!vw || !vh) { scannerOcupado = false; return; }
 
-    // Recortar zona del recuadro guía (84% ancho, 28% alto, centrado)
-    const rw = Math.floor(vw * 0.84);
-    const rh = Math.min(Math.floor(vh * 0.28), 130);
-    const rx = Math.floor((vw - rw) / 2);
+    // Zona central: ancho completo, 40% altura centrado
+    const rh = Math.floor(vh * 0.4);
     const ry = Math.floor((vh - rh) / 2);
-    canvas.width  = rw;
-    canvas.height = rh;
-    canvas.getContext('2d').drawImage(video, rx, ry, rw, rh, 0, 0, rw, rh);
+    const canvas = prepararCanvas(video, 0, ry, vw, rh);
 
     document.getElementById('scanner-status').textContent = 'Procesando…';
     const { data: { text } } = await tesseractWorker.recognize(canvas);
@@ -1710,10 +1730,7 @@ async function capturarManual() {
   scannerOcupado = true;
   try {
     const video  = document.getElementById('scanner-video');
-    const canvas = document.getElementById('scanner-canvas');
-    canvas.width  = video.videoWidth;
-    canvas.height = video.videoHeight;
-    canvas.getContext('2d').drawImage(video, 0, 0);
+    const canvas = prepararCanvas(video, 0, 0, video.videoWidth, video.videoHeight);
     const { data: { text } } = await tesseractWorker.recognize(canvas);
     const match = text.replace(/\s/g, '').match(/\d{10}/);
     if (match) {
