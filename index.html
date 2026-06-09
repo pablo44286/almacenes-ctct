@@ -1053,10 +1053,12 @@ document.addEventListener('keydown', function(e) {
 
 function driveImgUrl(url) {
   if (!url) return '';
-  // Extraer FILE_ID y construir URL directa de contenido
-  var m = url.match(/[?&]id=([^&\s]+)/);
+  // Formato /file/d/FILE_ID/view
+  var m = url.match(/\/file\/d\/([^\/\?&\s]+)/);
+  if (!m) m = url.match(/[?&]id=([^&\s]+)/);
   if (!m) return url;
-  return 'https://drive.google.com/uc?export=download&id=' + m[1];
+  // thumbnail es el formato más confiable para mostrar en <img> sin redirecciones
+  return 'https://drive.google.com/thumbnail?id=' + m[1] + '&sz=w800';
 }
 
 function abrirDetalle(codigoSAP) {
