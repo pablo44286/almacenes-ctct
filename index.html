@@ -1018,7 +1018,18 @@ function renderGPC(items) {
       + '</div>';
   }).join('');
 
-  const html = '<div class="gpc-section"><h3>Partes GPC — Turbina de Gas</h3>' + cards + '</div>';
+  const glosario = '<div style="margin-bottom:14px;padding:10px 12px;background:var(--bg);border-radius:8px;border:1px solid var(--border)">'
+    + '<div style="font-size:11px;font-weight:700;color:var(--txt2);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">Códigos REK</div>'
+    + '<div style="display:flex;flex-direction:column;gap:4px">'
+    + Object.entries(REK_LABELS).map(function(kv) {
+        return '<div style="display:flex;align-items:center;gap:8px">'
+          + '<span class="rek-badge rek-' + kv[0] + '" style="min-width:22px;text-align:center">' + kv[0] + '</span>'
+          + '<span style="font-size:12px;color:var(--txt)">' + esc(kv[1]) + '</span>'
+          + '</div>';
+      }).join('')
+    + '</div></div>';
+
+  const html = '<div class="gpc-section"><h3>Partes GPC — Turbina de Gas</h3>' + glosario + cards + '</div>';
 
   // Cargar imágenes en segundo plano
   const wbIds = [...new Set(items.filter(function(g) { return g.imagen_gpc; }).map(function(g) { return g.imagen_gpc; }))];
