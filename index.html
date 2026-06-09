@@ -639,31 +639,19 @@
       <button class="close" onclick="cerrarScanner()">✕</button>
     </div>
     <div class="modal-body" style="padding:16px">
-      <div id="scan-preview-wrap" style="background:var(--bg);border-radius:8px;overflow:hidden;
-           min-height:160px;display:flex;align-items:center;justify-content:center;
-           border:1px dashed var(--border);cursor:pointer" onclick="document.getElementById('inp-scanner-foto').click()">
-        <img id="scan-preview-img" style="width:100%;display:none;border-radius:8px">
-        <div id="scan-placeholder" style="text-align:center;padding:24px;color:var(--txt2);font-size:13px">
-          <svg width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="opacity:.4;display:block;margin:0 auto 8px">
-            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-            <circle cx="12" cy="13" r="4"/>
-          </svg>
-          Tocá para tomar o seleccionar foto
-        </div>
+      <div class="scan-viewport">
+        <video id="scanner-video" playsinline muted autoplay></video>
+        <div class="scan-guide-rect"></div>
+        <p class="scan-guide-hint">Centrá el número SAP en el recuadro</p>
       </div>
       <p id="scanner-status" style="text-align:center;margin-top:12px;font-size:13px;color:var(--txt2)">
-        Sacá una foto clara al número SAP de 10 dígitos
+        Iniciando cámara…
       </p>
-      <p id="scanner-result" style="text-align:center;font-size:14px;font-weight:600;color:var(--pri);
-         min-height:20px;word-break:break-all;margin-top:4px"></p>
-      <input type="file" id="inp-scanner-foto" accept="image/*" style="display:none"
-             onchange="procesarFotoScanner(this)">
+      <p id="scanner-result" style="text-align:center;font-size:15px;font-weight:700;color:var(--pri);min-height:22px"></p>
     </div>
     <div class="modal-footer">
       <button class="btn-sec" onclick="cerrarScanner()">Cancelar</button>
-      <button id="btn-capturar" class="btn-pri" onclick="document.getElementById('inp-scanner-foto').click()">
-        Tomar / Seleccionar foto
-      </button>
+      <button id="btn-capturar" class="btn-pri" onclick="capturarYOcr()" style="display:none">Capturar</button>
     </div>
   </div>
 </div>
@@ -758,7 +746,8 @@ async function iniciarSesion() {
       el.style.display = S.esAdmin ? '' : 'none';
     });
     cargarMateriales();
-    inicializarTesseract(); // inicializar worker OCR en segundo plano
+    // Pre-cargar Tesseract solo si TextDetector no está disponible
+    if (!textDetector && window.Tesseract) inicializarTesseract();
     // Cargar SAP codes de GPC en paralelo
     apiGet('getGPCSaps').then(function(res) {
       if (res.ok && Array.isArray(res.data)) {
@@ -1606,10 +1595,17 @@ async function abrirAuditoria() {
 }
 
 // ═══════════════════════════════════════════════════════════
-// SCANNER OCR (Tesseract.js) — foto desde cámara o galería
+// SCANNER — TextDetector nativo (rápido) + Tesseract fallback
 // ═══════════════════════════════════════════════════════════
 let tesseractWorker = null;
 let tesseractListo  = false;
+let scannerStream   = null;
+let scannerTimer    = null;
+let scannerOcupado  = false;
+let textDetector    = null;
+
+// Inicializar TextDetector (Shape Detection API — Chrome Android nativo, sin descargas)
+try { if ('TextDetector' in window) textDetector = new TextDetector(); } catch(e) {}
 
 async function inicializarTesseract() {
   if (!window.Tesseract || tesseractWorker) return;
@@ -1617,71 +1613,76 @@ async function inicializarTesseract() {
     tesseractWorker = await Tesseract.createWorker('eng', 1);
     await tesseractWorker.setParameters({
       tessedit_char_whitelist: '0123456789',
-      tessedit_pageseg_mode:   '6',
+      tessedit_pageseg_mode:   '11',  // sparse text — busca dígitos en cualquier parte
     });
     tesseractListo = true;
-  } catch(err) {
-    console.error('Tesseract init:', err);
-  }
+  } catch(err) { console.error('Tesseract:', err); }
 }
 
-function abrirScanner() {
-  if (!window.Tesseract) {
-    toast('OCR no disponible en este navegador', 'err');
-    return;
-  }
+async function abrirScanner() {
   abrirOverlay('ov-scanner');
-  document.getElementById('inp-scanner-foto').value    = '';
-  document.getElementById('scan-preview-img').style.display = 'none';
-  document.getElementById('scan-placeholder').style.display = '';
-  document.getElementById('scanner-status').textContent = 'Sacá una foto clara al número SAP de 10 dígitos';
+  document.getElementById('scanner-status').textContent = 'Iniciando cámara…';
   document.getElementById('scanner-result').textContent = '';
-  document.getElementById('btn-capturar').disabled      = false;
-  if (!tesseractListo) inicializarTesseract();
+  document.getElementById('btn-capturar').style.display = 'none';
+  scannerOcupado = false;
+
+  try {
+    scannerStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
+    });
+    const video = document.getElementById('scanner-video');
+    video.srcObject = scannerStream;
+    await video.play();
+
+    if (textDetector) {
+      // ── Modo rápido: TextDetector nativo (Chrome Android)
+      document.getElementById('scanner-status').textContent = 'Apuntá el número SAP al recuadro…';
+      scannerTimer = setInterval(async function() {
+        if (scannerOcupado || video.readyState < 2) return;
+        scannerOcupado = true;
+        try {
+          const textos = await textDetector.detect(video);
+          for (const t of textos) {
+            const match = t.rawValue.replace(/\s/g, '').match(/\d{10}/);
+            if (match) { onSapEncontrado(match[0]); return; }
+          }
+        } catch(e) {} finally { scannerOcupado = false; }
+      }, 600);
+    } else {
+      // ── Fallback: Tesseract + botón Capturar
+      document.getElementById('btn-capturar').style.display = '';
+      if (!tesseractListo) {
+        document.getElementById('scanner-status').textContent = 'Cargando OCR… (primera vez, esperá)';
+        await inicializarTesseract();
+      }
+      document.getElementById('scanner-status').textContent =
+        tesseractListo ? 'Apuntá la cámara y presioná Capturar' : 'Error al cargar OCR.';
+    }
+  } catch(err) {
+    const msg = err.name === 'NotAllowedError'
+      ? 'Permiso de cámara denegado.' : 'No se pudo acceder a la cámara.';
+    document.getElementById('scanner-status').textContent = msg;
+  }
 }
 
-async function procesarFotoScanner(input) {
-  if (!input.files || !input.files[0]) return;
-  const file = input.files[0];
+async function capturarYOcr() {
+  if (!tesseractListo || scannerOcupado) return;
+  const video = document.getElementById('scanner-video');
+  if (video.readyState < 2) return;
+  scannerOcupado = true;
+  document.getElementById('btn-capturar').disabled = true;
+  document.getElementById('scanner-status').textContent = 'Procesando…';
 
-  // Mostrar preview
-  const url = URL.createObjectURL(file);
-  const imgEl = document.getElementById('scan-preview-img');
-  imgEl.src = url;
-  imgEl.style.display = '';
-  document.getElementById('scan-placeholder').style.display = 'none';
-  document.getElementById('scanner-result').textContent     = '';
-  document.getElementById('btn-capturar').disabled          = true;
-
-  // Esperar Tesseract si aún carga
-  if (!tesseractListo) {
-    document.getElementById('scanner-status').textContent = 'Cargando OCR… esperá un momento';
-    await inicializarTesseract();
-    if (!tesseractListo) {
-      document.getElementById('scanner-status').textContent = 'Error al cargar OCR. Recargá la página.';
-      document.getElementById('btn-capturar').disabled = false;
-      return;
-    }
-  }
-
-  document.getElementById('scanner-status').textContent = 'Procesando imagen…';
   try {
-    // Dibujar imagen en canvas y upscalear 2x en escala de grises
-    const bitmap = await createImageBitmap(file);
-    const tmp = document.createElement('canvas');
-    tmp.width  = bitmap.width;
-    tmp.height = bitmap.height;
-    tmp.getContext('2d').drawImage(bitmap, 0, 0);
-    bitmap.close();
-
+    // Capturar frame completo en canvas, upscale 2x, escala de grises
     const canvas = document.getElementById('scanner-canvas');
     const scale  = 2;
-    canvas.width  = tmp.width  * scale;
-    canvas.height = tmp.height * scale;
+    canvas.width  = video.videoWidth  * scale;
+    canvas.height = video.videoHeight * scale;
     const ctx = canvas.getContext('2d');
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(tmp, 0, 0, canvas.width, canvas.height);
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const px = imgData.data;
     for (let i = 0; i < px.length; i += 4) {
@@ -1691,20 +1692,18 @@ async function procesarFotoScanner(input) {
     ctx.putImageData(imgData, 0, 0);
 
     const { data: { text } } = await tesseractWorker.recognize(canvas);
-    const limpio = text.replace(/\s/g, '');
-    const match  = limpio.match(/\d{10}/);
-
+    const match = text.replace(/\s/g, '').match(/\d{10}/);
     if (match) {
-      URL.revokeObjectURL(url);
       onSapEncontrado(match[0]);
     } else {
-      const detectado = text.trim().replace(/\n/g,' ').substring(0, 80);
-      document.getElementById('scanner-status').textContent = 'No se detectó número de 10 dígitos. Intentá con otra foto más cercana o enfocada.';
-      document.getElementById('scanner-result').textContent = detectado ? 'Leído: "' + detectado + '"' : '';
-      document.getElementById('btn-capturar').disabled = false;
+      const leido = text.trim().replace(/\n/g, ' ').substring(0, 60);
+      document.getElementById('scanner-status').textContent = 'No detectado. Acercate más y volvé a intentar.';
+      document.getElementById('scanner-result').textContent = leido ? 'Leído: "' + leido + '"' : '';
     }
   } catch(err) {
-    document.getElementById('scanner-status').textContent = 'Error al procesar. Intentá de nuevo.';
+    document.getElementById('scanner-status').textContent = 'Error. Intentá de nuevo.';
+  } finally {
+    scannerOcupado = false;
     document.getElementById('btn-capturar').disabled = false;
   }
 }
@@ -1717,6 +1716,14 @@ function onSapEncontrado(sap) {
 }
 
 function cerrarScanner() {
+  clearInterval(scannerTimer);
+  scannerTimer = null;
+  scannerOcupado = false;
+  if (scannerStream) {
+    scannerStream.getTracks().forEach(t => t.stop());
+    scannerStream = null;
+  }
+  document.getElementById('scanner-video').srcObject = null;
   cerrarOverlay('ov-scanner');
 }
 
