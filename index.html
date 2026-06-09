@@ -269,10 +269,74 @@
     .empty svg { opacity: .3; margin-bottom: 12px; }
 
     @media (max-width: 640px) {
+      /* ── Formularios ── */
       .form-grid { grid-template-columns: 1fr; }
       .form-grid .span2 { grid-column: span 1; }
       .detail-grid { grid-template-columns: 1fr; }
       .detail-key { border-bottom: none; padding-bottom: 2px; }
+
+      /* ── Header ── */
+      header { padding: 0 12px; height: 48px; }
+      header img { height: 30px; margin-right: 6px; }
+      header .logo { font-size: 14px; }
+      header .usr { display: none; }
+      #lbl-ultima-act { display: none; }
+
+      /* ── Toolbar ── */
+      .toolbar { padding: 10px 12px; gap: 8px; }
+      .search-wrap { flex: 1; min-width: 0; }
+      .toolbar .actions { gap: 6px; }
+      .toolbar .actions .btn-sec { font-size: 12px; padding: 7px 10px; }
+      .btn-mob-hide { display: none !important; }
+
+      /* ── Stats ── */
+      .stats-bar { padding: 5px 12px; font-size: 11px; gap: 10px; }
+
+      /* ── Tabla: mostrar solo SAP / Material / Cantidad / Acciones ── */
+      .table-wrap { padding: 0 12px 16px; }
+      table { font-size: 13px; }
+      td, th { padding: 10px 8px; }
+      /* ocultar: Cód.mat(3) Marca(4) Área(5) Ubicación(6) Ubic.técnica(7) Obs(9) Img(10) */
+      #thead-row th:nth-child(3), tbody td:nth-child(3),
+      #thead-row th:nth-child(4), tbody td:nth-child(4),
+      #thead-row th:nth-child(5), tbody td:nth-child(5),
+      #thead-row th:nth-child(6), tbody td:nth-child(6),
+      #thead-row th:nth-child(7), tbody td:nth-child(7),
+      #thead-row th:nth-child(9), tbody td:nth-child(9),
+      #thead-row th:nth-child(10), tbody td:nth-child(10) { display: none; }
+      .td-mat span { max-width: 160px; }
+      /* Fila completa tappable */
+      tbody tr { cursor: pointer; }
+      tbody tr:active td { background: #e8f0fe; }
+      /* Ocultar botón Ver en móvil (la fila entera es tappable) */
+      .btn-ver-mob { display: none; }
+      .action-btns { gap: 6px; }
+      .btn-sm { padding: 7px 10px; font-size: 12px; }
+
+      /* ── Paginación ── */
+      .pagination button { min-height: 44px; padding: 8px 12px; }
+
+      /* ── Modales: bottom sheet ── */
+      .overlay { padding: 0 !important; align-items: flex-end !important; }
+      .modal {
+        border-radius: 20px 20px 0 0 !important;
+        width: 100% !important; max-width: 100% !important;
+        max-height: 92vh; overflow-y: auto;
+      }
+      .modal-body { padding: 16px !important; }
+      .modal-footer { padding: 12px 16px !important; }
+
+      /* ── Modal detalle: paneles apilados ── */
+      #ov-detalle .modal { max-height: 96vh; }
+      .det-panels { flex-direction: column !important; }
+      #det-body { border-right: none !important; }
+      #det-gpc {
+        width: 100% !important; min-width: 0 !important;
+        max-height: none !important; padding: 16px !important;
+        border-top: 1px solid var(--border);
+      }
+      .modal-footer { flex-wrap: wrap; }
+      .modal-footer button { flex: 1; min-width: 0; text-align: center; }
     }
   </style>
 </head>
@@ -314,12 +378,12 @@
     </div>
     <div class="toolbar-row">
       <div class="actions">
-        <button class="btn-acc" onclick="abrirAltaMaterial()">+ Nuevo material</button>
-        <button class="btn-sec" onclick="abrirAltaMasiva()">↑ Carga masiva</button>
-        <button class="btn-sec" onclick="exportarCSV()">↓ Exportar CSV</button>
-        <button class="btn-sec" id="btn-filtro-gpc" onclick="toggleFiltroGPC()">⚙ Solo GPC</button>
-      <button class="btn-sec" onclick="abrirActualizarMasivo()">↺ Actualizar masivo</button>
-      <button class="btn-sec admin-only" onclick="abrirAuditoria()" style="display:none">Auditoría</button>
+        <button class="btn-acc" onclick="abrirAltaMaterial()">+ Nuevo</button>
+        <button class="btn-sec" id="btn-filtro-gpc" onclick="toggleFiltroGPC()">⚙ GPC</button>
+        <button class="btn-sec btn-mob-hide" onclick="abrirAltaMasiva()">↑ Carga masiva</button>
+        <button class="btn-sec btn-mob-hide" onclick="exportarCSV()">↓ Exportar CSV</button>
+        <button class="btn-sec btn-mob-hide" onclick="abrirActualizarMasivo()">↺ Actualizar masivo</button>
+        <button class="btn-sec admin-only btn-mob-hide" onclick="abrirAuditoria()" style="display:none">Auditoría</button>
       </div>
     </div>
   </div>
@@ -365,7 +429,7 @@
       <h2 id="det-titulo">Detalle del material</h2>
       <button class="close" onclick="cerrarOverlay('ov-detalle')">✕</button>
     </div>
-    <div style="display:flex;gap:0;min-height:0">
+    <div class="det-panels" style="display:flex;gap:0;min-height:0">
       <div class="modal-body" id="det-body" style="flex:1;min-width:0;border-right:1px solid var(--border)"></div>
       <div id="det-gpc" style="width:420px;min-width:320px;overflow-y:auto;padding:24px;max-height:70vh"></div>
     </div>
@@ -899,7 +963,7 @@ function renderTabla() {
     const cantClass = cant === 0 ? 'zero' : (m.stock_min && cant <= Number(m.stock_min) ? 'low' : '');
     const tieneImg = m.imagen_url ? '✓' : '—';
     const imgClass = m.imagen_url ? 'style="color:var(--ok);font-weight:700"' : 'style="color:var(--txt2)"';
-    return `<tr>
+    return `<tr onclick="abrirDetalle('${esc(m.codigo_sap)}')">
       <td><code>${esc(m.codigo_sap)}</code></td>
       <td class="td-mat"><span title="${esc(m.material)}">${esc(m.material)}</span></td>
       <td>${esc(m.codigo_material || '—')}</td>
@@ -912,9 +976,9 @@ function renderTabla() {
       <td ${imgClass}>${tieneImg}</td>
       <td>
         <div class="action-btns">
-          <button class="btn-sec btn-sm" onclick="abrirDetalle('${esc(m.codigo_sap)}')">Ver</button>
-          ${S.esAdmin ? `<button class="btn-sec btn-sm admin-only" onclick="abrirEdicion('${esc(m.codigo_sap)}')">Editar</button>` : ''}
-          <button class="btn-acc btn-sm" onclick="abrirMovimiento('${esc(m.codigo_sap)}')">Mov.</button>
+          <button class="btn-sec btn-sm btn-ver-mob" onclick="event.stopPropagation();abrirDetalle('${esc(m.codigo_sap)}')">Ver</button>
+          ${S.esAdmin ? `<button class="btn-sec btn-sm admin-only" onclick="event.stopPropagation();abrirEdicion('${esc(m.codigo_sap)}')">Editar</button>` : ''}
+          <button class="btn-acc btn-sm" onclick="event.stopPropagation();abrirMovimiento('${esc(m.codigo_sap)}')">Mov.</button>
         </div>
       </td>
     </tr>`;
