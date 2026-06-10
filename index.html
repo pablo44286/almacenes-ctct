@@ -394,7 +394,7 @@
         <button class="btn-acc" onclick="abrirAltaMaterial()">+ Nuevo</button>
         <button class="btn-sec" id="btn-filtro-gpc" onclick="toggleFiltroGPC()">⚙ GPC</button>
         <button class="btn-sec" id="btn-filtro-gpc-nc" onclick="toggleFiltroGPCNoCargado()">📋 Sin SAP</button>
-        <button class="btn-sec" id="btn-filtro-misc-ft" onclick="toggleFiltroMiscFT()" style="display:none">🔧 Misc. FT</button>
+        <button class="btn-sec" id="btn-filtro-misc-ft" onclick="toggleFiltroMiscFT()">🔧 Misc. FT</button>
         <button class="btn-sec btn-mob-hide" onclick="abrirAltaMasiva()">↑ Carga masiva</button>
         <button class="btn-sec btn-mob-hide" onclick="exportarCSV()">↓ Exportar CSV</button>
         <button class="btn-sec btn-mob-hide" onclick="abrirActualizarMasivo()">↺ Actualizar masivo</button>
@@ -768,6 +768,8 @@ const S = {
   sortDir:    1,     // 1 = asc, -1 = desc
   gpcSaps:            new Set(),
   gpcReponerSaps:     new Set(),
+  miscFTpbpg:         new Set(),
+  miscFTsaps:         new Set(),
   filtroGPC:          false,
   filtroReponer:      false,
   filtroGPCNoCargado: false,
@@ -826,10 +828,14 @@ async function iniciarSesion() {
       el.style.display = S.esAdmin ? '' : 'none';
     });
     cargarMateriales();
-    // Cargar SAP codes de GPC en paralelo
+    // Cargar sets auxiliares en paralelo
     apiGet('getGPCSaps').then(function(res) {
-      if (res.ok && Array.isArray(res.data)) {
-        S.gpcSaps = new Set(res.data.map(String));
+      if (res.ok && Array.isArray(res.data)) S.gpcSaps = new Set(res.data.map(String));
+    });
+    apiGet('getMiscFTIds').then(function(res) {
+      if (res.ok && res.data) {
+        S.miscFTpbpg = new Set((res.data.pbpg || []).map(String));
+        S.miscFTsaps = new Set((res.data.saps  || []).map(String));
       }
     });
   } catch(err) {
@@ -944,8 +950,6 @@ function toggleFiltroGPCNoCargado() {
   btn.style.background  = S.filtroGPCNoCargado ? 'var(--warn)' : '';
   btn.style.color       = S.filtroGPCNoCargado ? '#fff' : '';
   btn.style.borderColor = S.filtroGPCNoCargado ? 'var(--warn)' : '';
-  // Mostrar/ocultar botón Misc. FT según si estamos en modo Sin SAP
-  document.getElementById('btn-filtro-misc-ft').style.display = S.filtroGPCNoCargado ? '' : 'none';
   if (!S.filtroGPCNoCargado) { S.filtroMiscFT = false; resetBtnMiscFT(); }
   ejecutarBusqueda();
 }
@@ -982,7 +986,10 @@ function ejecutarBusqueda() {
   }
 
   if (S.filtroMiscFT) {
-    base = base.filter(function(m) { return m.es_misc_ft; });
+    base = base.filter(function(m) {
+      return S.miscFTpbpg.has(String(m.codigo_material || ''))
+          || S.miscFTsaps.has(String(m.codigo_sap || ''));
+    });
   }
 
   S.filtrados = !q ? base : base.filter(function(m) {
