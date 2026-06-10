@@ -196,6 +196,8 @@
     .rek-L { background:#d97706; } /* Long lead time */
     .rek-R { background:#16a34a; } /* Routine */
     .rek-U { background:#0891b2; } /* Unit shutdown */
+    .rek-P { background:#059669; } /* Preventive */
+    .rek-Z { background:#64748b; } /* Special */
     .rek-other { background:#64748b; }
     .gpc-fuente { font-size:11px; padding:2px 8px; border-radius:99px; font-weight:600; }
     .gpc-en  { background:#dcfce7; color:#166534; }
@@ -263,6 +265,11 @@
     .spinner { width: 40px; height: 40px; border: 4px solid var(--border);
       border-top-color: var(--pri); border-radius: 50%; animation: spin .7s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── GPC sin SAP ── */
+    .row-gpc-nc td { background: #fffbf0; }
+    .row-gpc-nc:hover td { background: #fff3e0; }
+    .chip-gpc-nc { background: #fff3e0; border-color: #fb8c00; color: #e65100; font-weight: 700; }
 
     /* ── Empty state ── */
     .empty { text-align: center; padding: 48px 24px; color: var(--txt2); }
@@ -380,6 +387,7 @@
       <div class="actions">
         <button class="btn-acc" onclick="abrirAltaMaterial()">+ Nuevo</button>
         <button class="btn-sec" id="btn-filtro-gpc" onclick="toggleFiltroGPC()">⚙ GPC</button>
+        <button class="btn-sec" id="btn-filtro-gpc-nc" onclick="toggleFiltroGPCNoCargado()">📋 Sin SAP</button>
         <button class="btn-sec btn-mob-hide" onclick="abrirAltaMasiva()">↑ Carga masiva</button>
         <button class="btn-sec btn-mob-hide" onclick="exportarCSV()">↓ Exportar CSV</button>
         <button class="btn-sec btn-mob-hide" onclick="abrirActualizarMasivo()">↺ Actualizar masivo</button>
@@ -751,10 +759,11 @@ const S = {
   csvData:    null,
   sortCol:    null,
   sortDir:    1,     // 1 = asc, -1 = desc
-  gpcSaps:       new Set(),
-  gpcReponerSaps:new Set(),
-  filtroGPC:     false,
-  filtroReponer: false
+  gpcSaps:            new Set(),
+  gpcReponerSaps:     new Set(),
+  filtroGPC:          false,
+  filtroReponer:      false,
+  filtroGPCNoCargado: false
 };
 
 // ═══════════════════════════════════════════════════════════
@@ -915,17 +924,34 @@ function debounceBuscar() {
 function toggleFiltroGPC() {
   S.filtroGPC = !S.filtroGPC;
   const btn = document.getElementById('btn-filtro-gpc');
-  btn.style.background    = S.filtroGPC ? 'var(--pri)' : '';
-  btn.style.color         = S.filtroGPC ? '#fff' : '';
-  btn.style.borderColor   = S.filtroGPC ? 'var(--pri)' : '';
+  btn.style.background  = S.filtroGPC ? 'var(--pri)' : '';
+  btn.style.color       = S.filtroGPC ? '#fff' : '';
+  btn.style.borderColor = S.filtroGPC ? 'var(--pri)' : '';
+  ejecutarBusqueda();
+}
+
+function toggleFiltroGPCNoCargado() {
+  S.filtroGPCNoCargado = !S.filtroGPCNoCargado;
+  const btn = document.getElementById('btn-filtro-gpc-nc');
+  btn.style.background  = S.filtroGPCNoCargado ? 'var(--warn)' : '';
+  btn.style.color       = S.filtroGPCNoCargado ? '#fff' : '';
+  btn.style.borderColor = S.filtroGPCNoCargado ? 'var(--warn)' : '';
   ejecutarBusqueda();
 }
 
 function ejecutarBusqueda() {
   const q = document.getElementById('inp-buscar').value.trim().toLowerCase();
-  const CAMPOS_BUSQUEDA = ['material','codigo_sap','codigo_material','marca','area','ubicacion','observaciones'];
+  const CAMPOS_BUSQUEDA = ['material','codigo_sap','codigo_material','marca','area','ubicacion','observaciones','wb_item_id','order_no'];
 
   let base = S.materiales;
+
+  // Por defecto ocultar GPC sin SAP salvo que el filtro esté activo
+  if (!S.filtroGPCNoCargado) {
+    base = base.filter(function(m) { return !m.es_gpc_no_cargado; });
+  } else {
+    // Cuando el filtro "Sin SAP" está activo, mostrar SOLO esos ítems
+    base = base.filter(function(m) { return m.es_gpc_no_cargado; });
+  }
 
   if (S.filtroGPC) {
     base = base.filter(function(m) { return S.gpcSaps.has(String(m.codigo_sap)); });
@@ -963,8 +989,13 @@ function renderTabla() {
     const cantClass = cant === 0 ? 'zero' : (m.stock_min && cant <= Number(m.stock_min) ? 'low' : '');
     const tieneImg = m.imagen_url ? '✓' : '—';
     const imgClass = m.imagen_url ? 'style="color:var(--ok);font-weight:700"' : 'style="color:var(--txt2)"';
-    return `<tr onclick="abrirDetalle('${esc(m.codigo_sap)}')">
-      <td><code>${esc(m.codigo_sap)}</code></td>
+    const matKey   = m.codigo_sap || m.id;
+    const esNC     = m.es_gpc_no_cargado;
+    const sapCell  = esNC
+      ? `<span class="chip chip-gpc-nc">Sin SAP</span> <small style="color:var(--txt2)">${esc(m.wb_item_id||'')}</small>`
+      : `<code>${esc(m.codigo_sap)}</code>`;
+    return `<tr class="${esNC ? 'row-gpc-nc' : ''}" onclick="abrirDetalle('${esc(matKey)}')">
+      <td>${sapCell}</td>
       <td class="td-mat"><span title="${esc(m.material)}">${esc(m.material)}</span></td>
       <td>${esc(m.codigo_material || '—')}</td>
       <td>${esc(m.marca || '—')}</td>
@@ -976,9 +1007,9 @@ function renderTabla() {
       <td ${imgClass}>${tieneImg}</td>
       <td>
         <div class="action-btns">
-          <button class="btn-sec btn-sm btn-ver-mob" onclick="event.stopPropagation();abrirDetalle('${esc(m.codigo_sap)}')">Ver</button>
-          ${S.esAdmin ? `<button class="btn-sec btn-sm admin-only" onclick="event.stopPropagation();abrirEdicion('${esc(m.codigo_sap)}')">Editar</button>` : ''}
-          <button class="btn-acc btn-sm" onclick="event.stopPropagation();abrirMovimiento('${esc(m.codigo_sap)}')">Mov.</button>
+          <button class="btn-sec btn-sm btn-ver-mob" onclick="event.stopPropagation();abrirDetalle('${esc(matKey)}')">Ver</button>
+          ${!esNC && S.esAdmin ? `<button class="btn-sec btn-sm admin-only" onclick="event.stopPropagation();abrirEdicion('${esc(m.codigo_sap)}')">Editar</button>` : ''}
+          ${!esNC ? `<button class="btn-acc btn-sm" onclick="event.stopPropagation();abrirMovimiento('${esc(m.codigo_sap)}')">Mov.</button>` : ''}
         </div>
       </td>
     </tr>`;
@@ -1036,7 +1067,9 @@ function renderGPC(items) {
     'T': 'Overhaul mayor (Major overhaul)',
     'L': 'Largo tiempo de entrega (Long lead time)',
     'R': 'Mantenimiento rutinario (Routine maintenance)',
-    'U': 'Parada de unidad (Unit shutdown)'
+    'U': 'Parada de unidad (Unit shutdown)',
+    'P': 'Mantenimiento preventivo (Preventive maintenance)',
+    'Z': 'Especial (Special / Other)'
   };
   const rekClass = function(r) {
     return ['I','T','L','R','U'].includes(r) ? 'rek-' + r : 'rek-other';
@@ -1182,17 +1215,37 @@ function abrirDetalle(codigoSAP) {
   document.getElementById('det-body').innerHTML =
     img + '<div class="detail-grid">' + rows + '</div>';
 
-  document.getElementById('btn-editar-det').style.display = S.esAdmin ? '' : 'none';
-  document.getElementById('det-gpc').innerHTML = '<p style="font-size:12px;color:var(--txt2);margin-top:8px">Cargando GPC…</p>';
+  document.getElementById('btn-editar-det').style.display = (S.esAdmin && !m.es_gpc_no_cargado) ? '' : 'none';
   abrirOverlay('ov-detalle');
 
-  // Cargar datos GPC en segundo plano
-  apiGet('getGPC', { codigoSAP: m.codigo_sap }).then(function(res) {
-    const gpc = (res.ok && res.data && res.data.length) ? res.data : null;
-    document.getElementById('det-gpc').innerHTML = gpc ? renderGPC(gpc) : '';
-  }).catch(function() {
-    document.getElementById('det-gpc').innerHTML = '';
-  });
+  if (m.es_gpc_no_cargado) {
+    // Ítem GPC sin SAP: mostrar ficha técnica del catálogo
+    const REK_LABELS_NC = {
+      'I':'Repuesto de seguro','T':'Overhaul mayor','L':'Largo tiempo de entrega',
+      'R':'Mantenimiento rutinario','U':'Parada de unidad',
+      'P':'Mantenimiento preventivo','Z':'Especial / Other'
+    };
+    const rekDesc = m.rek_desc || REK_LABELS_NC[m.rek] || '';
+    document.getElementById('det-gpc').innerHTML =
+      '<div style="padding:0;font-size:13px">'
+      + '<div style="background:#fff3e0;border:1px solid #fb8c00;border-radius:8px;padding:10px 14px;margin-bottom:14px;color:#7a3b00;font-size:12px">'
+      + '⚠ Material del catálogo GPC <strong>sin número SAP</strong> — pendiente de incorporar al almacén.'
+      + '</div>'
+      + (m.rek ? '<div style="margin-bottom:8px"><span class="rek-badge rek-' + esc(m.rek) + '" style="margin-right:6px">' + esc(m.rek) + '</span>'
+              + '<span style="color:var(--txt2)">' + esc(rekDesc) + '</span></div>' : '')
+      + (m.subsistema_es ? '<div style="margin-bottom:4px"><strong>Subsistema:</strong> ' + esc(m.subsistema_es) + '</div>' : '')
+      + (m.order_no ? '<div style="margin-bottom:4px"><strong>Order No.:</strong> ' + esc(m.order_no) + '</div>' : '')
+      + (m.wb_item_id ? '<div style="margin-bottom:4px"><strong>WB Item ID:</strong> ' + esc(m.wb_item_id) + '</div>' : '')
+      + '</div>';
+  } else {
+    document.getElementById('det-gpc').innerHTML = '<p style="font-size:12px;color:var(--txt2);margin-top:8px">Cargando GPC…</p>';
+    apiGet('getGPC', { codigoSAP: m.codigo_sap }).then(function(res) {
+      const gpc = (res.ok && res.data && res.data.length) ? res.data : null;
+      document.getElementById('det-gpc').innerHTML = gpc ? renderGPC(gpc) : '';
+    }).catch(function() {
+      document.getElementById('det-gpc').innerHTML = '';
+    });
+  }
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -1786,8 +1839,10 @@ function cerrarScanner() {
 // ═══════════════════════════════════════════════════════════
 // HELPERS
 // ═══════════════════════════════════════════════════════════
-function findMat(codigoSAP) {
-  return S.materiales.find(m => String(m.codigo_sap) === String(codigoSAP)) || null;
+function findMat(key) {
+  return S.materiales.find(function(m) {
+    return String(m.codigo_sap) === String(key) || String(m.id) === String(key);
+  }) || null;
 }
 
 function esc(str) {
