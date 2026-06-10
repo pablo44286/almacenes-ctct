@@ -197,6 +197,12 @@
     .rek-R { background:#16a34a; } /* Routine */
     .rek-U { background:#0891b2; } /* Unit shutdown */
     .rek-P { background:#059669; } /* Preventive */
+    .rek-M { background:#e11d48; } /* Minor overhaul */
+    .rek-K { background:#9333ea; } /* Capital spare */
+    .rek-Q { background:#0284c7; } /* Quality assurance */
+    .rek-S { background:#0d9488; } /* Seasonal */
+    .rek-W { background:#92400e; } /* Wear part */
+    .rek-A, .rek-H, .rek-Y { background:#475569; } /* Recommended */
     .rek-Z { background:#64748b; } /* Special */
     .rek-other { background:#64748b; }
     .gpc-fuente { font-size:11px; padding:2px 8px; border-radius:99px; font-weight:600; }
@@ -1065,14 +1071,22 @@ function renderGPC(items) {
   const REK_LABELS = {
     'I': 'Repuesto de seguro (Insurance spare)',
     'T': 'Overhaul mayor (Major overhaul)',
+    'M': 'Overhaul menor (Minor overhaul)',
+    'K': 'Repuesto de capital (Capital spare)',
     'L': 'Largo tiempo de entrega (Long lead time)',
     'R': 'Mantenimiento rutinario (Routine maintenance)',
-    'U': 'Parada de unidad (Unit shutdown)',
     'P': 'Mantenimiento preventivo (Preventive maintenance)',
-    'Z': 'Especial (Special / Other)'
+    'U': 'Parada de unidad (Unit shutdown)',
+    'Q': 'Aseguramiento de calidad (Quality assurance)',
+    'S': 'Estacional (Seasonal)',
+    'W': 'Parte de desgaste (Wear part)',
+    'A': 'Recomendado (Recommended)',
+    'H': 'Recomendado (Recommended)',
+    'Y': 'Recomendado (Recommended)',
+    'Z': 'Especial (Special)'
   };
   const rekClass = function(r) {
-    return ['I','T','L','R','U'].includes(r) ? 'rek-' + r : 'rek-other';
+    return Object.keys(REK_LABELS).includes(r) ? 'rek-' + r : 'rek-other';
   };
 
   const cards = items.map(function(g) {
