@@ -1101,10 +1101,7 @@ function renderGPC(items) {
     return '<div class="gpc-card">'
       + '<div class="gpc-card-header">'
       + (g.wb_item_id ? '<code style="font-size:12px;font-weight:700;color:var(--pri)">' + esc(g.wb_item_id) + '</code>' : '')
-      + '<span class="rek-badge ' + rekClass(g.rek) + '">' + esc(g.rek) + '</span>'
-      + (g.rek_desc || REK_LABELS[g.rek]
-          ? '<span style="font-size:12px;color:var(--txt2);font-weight:500">' + esc(g.rek_desc || REK_LABELS[g.rek]) + '</span>'
-          : '')
+      + '<span class="rek-badge ' + rekClass(g.rek) + '" title="' + esc(g.rek_desc || REK_LABELS[g.rek] || g.rek) + '">' + esc(g.rek) + '</span>'
       + fuenteLabel
       + (g.estado ? '<span style="font-size:12px;font-weight:600;color:' + estadoColor + '">' + esc(g.estado) + '</span>' : '')
       + '</div>'
