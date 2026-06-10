@@ -1241,24 +1241,32 @@ function abrirDetalle(codigoSAP) {
   abrirOverlay('ov-detalle');
 
   if (m.es_gpc_no_cargado) {
-    // Ítem GPC sin SAP: mostrar ficha técnica del catálogo
-    const REK_LABELS_NC = {
-      'I':'Repuesto de seguro','T':'Overhaul mayor','L':'Largo tiempo de entrega',
-      'R':'Mantenimiento rutinario','U':'Parada de unidad',
-      'P':'Mantenimiento preventivo','Z':'Especial / Other'
-    };
-    const rekDesc = m.rek_desc || REK_LABELS_NC[m.rek] || '';
-    document.getElementById('det-gpc').innerHTML =
-      '<div style="padding:0;font-size:13px">'
-      + '<div style="background:#fff3e0;border:1px solid #fb8c00;border-radius:8px;padding:10px 14px;margin-bottom:14px;color:#7a3b00;font-size:12px">'
+    // Ítem GPC sin SAP: armar objeto GPC con los datos del material y renderizar
+    const aviso = '<div style="background:#fff3e0;border:1px solid #fb8c00;border-radius:8px;'
+      + 'padding:10px 14px;margin-bottom:14px;color:#7a3b00;font-size:12px">'
       + '⚠ Material del catálogo GPC <strong>sin número SAP</strong> — pendiente de incorporar al almacén.'
-      + '</div>'
-      + (m.rek ? '<div style="margin-bottom:8px"><span class="rek-badge rek-' + esc(m.rek) + '" style="margin-right:6px">' + esc(m.rek) + '</span>'
-              + '<span style="color:var(--txt2)">' + esc(rekDesc) + '</span></div>' : '')
-      + (m.subsistema_es ? '<div style="margin-bottom:4px"><strong>Subsistema:</strong> ' + esc(m.subsistema_es) + '</div>' : '')
-      + (m.order_no ? '<div style="margin-bottom:4px"><strong>Order No.:</strong> ' + esc(m.order_no) + '</div>' : '')
-      + (m.wb_item_id ? '<div style="margin-bottom:4px"><strong>WB Item ID:</strong> ' + esc(m.wb_item_id) + '</div>' : '')
       + '</div>';
+    const gpcItem = [{
+      fuente:          'GPC no cargado en almacen',
+      order_no:        m.order_no        || '',
+      descripcion:     m.material        || '',
+      caracteristicas: m.observaciones   || '',
+      qty:             m.cantidad_reponer|| '',
+      unit:            m.unidad_despacho || '',
+      rek:             m.rek             || '',
+      rek_desc:        m.rek_desc        || '',
+      item_id_a2a:     '',
+      item_id_pbpg:    '',
+      wb_item_id:      m.wb_item_id      || '',
+      grupo:           m.area            || '',
+      subsistema_es:   m.subsistema_es   || '',
+      cobertura:       '',
+      estado:          '',
+      imagen_gpc:      '',
+      pag_spl:         m.pag_spl         || '',
+      pag_diagrama:    m.pag_diagrama     || ''
+    }];
+    document.getElementById('det-gpc').innerHTML = aviso + renderGPC(gpcItem);
   } else {
     document.getElementById('det-gpc').innerHTML = '<p style="font-size:12px;color:var(--txt2);margin-top:8px">Cargando GPC…</p>';
     apiGet('getGPC', { codigoSAP: m.codigo_sap }).then(function(res) {
