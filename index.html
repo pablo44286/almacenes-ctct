@@ -1119,6 +1119,7 @@ function renderGPC(items) {
             + '</div>'
           : '')
       + '<dl class="gpc-grid">'
+      + (g.item_pos      ? '<dt>Item Position</dt><dd>' + esc(g.item_pos) + '</dd>' : '')
       + (g.order_no      ? '<dt>Order No.</dt><dd>' + esc(g.order_no) + '</dd>' : '')
       + (g.descripcion   ? '<dt>Descripción</dt><dd>' + esc(g.descripcion) + '</dd>' : '')
       + (g.qty           ? '<dt>Qty recomendada</dt><dd>' + esc(g.qty) + ' ' + esc(g.unit) + '</dd>' : '')
