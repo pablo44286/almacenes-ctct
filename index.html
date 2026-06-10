@@ -394,6 +394,7 @@
         <button class="btn-acc" onclick="abrirAltaMaterial()">+ Nuevo</button>
         <button class="btn-sec" id="btn-filtro-gpc" onclick="toggleFiltroGPC()">⚙ GPC</button>
         <button class="btn-sec" id="btn-filtro-gpc-nc" onclick="toggleFiltroGPCNoCargado()">📋 Sin SAP</button>
+        <button class="btn-sec" id="btn-filtro-misc-ft" onclick="toggleFiltroMiscFT()" style="display:none">🔧 Misc. FT</button>
         <button class="btn-sec btn-mob-hide" onclick="abrirAltaMasiva()">↑ Carga masiva</button>
         <button class="btn-sec btn-mob-hide" onclick="exportarCSV()">↓ Exportar CSV</button>
         <button class="btn-sec btn-mob-hide" onclick="abrirActualizarMasivo()">↺ Actualizar masivo</button>
@@ -769,7 +770,8 @@ const S = {
   gpcReponerSaps:     new Set(),
   filtroGPC:          false,
   filtroReponer:      false,
-  filtroGPCNoCargado: false
+  filtroGPCNoCargado: false,
+  filtroMiscFT:       false
 };
 
 // ═══════════════════════════════════════════════════════════
@@ -942,7 +944,23 @@ function toggleFiltroGPCNoCargado() {
   btn.style.background  = S.filtroGPCNoCargado ? 'var(--warn)' : '';
   btn.style.color       = S.filtroGPCNoCargado ? '#fff' : '';
   btn.style.borderColor = S.filtroGPCNoCargado ? 'var(--warn)' : '';
+  // Mostrar/ocultar botón Misc. FT según si estamos en modo Sin SAP
+  document.getElementById('btn-filtro-misc-ft').style.display = S.filtroGPCNoCargado ? '' : 'none';
+  if (!S.filtroGPCNoCargado) { S.filtroMiscFT = false; resetBtnMiscFT(); }
   ejecutarBusqueda();
+}
+
+function toggleFiltroMiscFT() {
+  S.filtroMiscFT = !S.filtroMiscFT;
+  resetBtnMiscFT();
+  ejecutarBusqueda();
+}
+
+function resetBtnMiscFT() {
+  const btn = document.getElementById('btn-filtro-misc-ft');
+  btn.style.background  = S.filtroMiscFT ? '#92400e' : '';
+  btn.style.color       = S.filtroMiscFT ? '#fff' : '';
+  btn.style.borderColor = S.filtroMiscFT ? '#92400e' : '';
 }
 
 function ejecutarBusqueda() {
@@ -961,6 +979,10 @@ function ejecutarBusqueda() {
 
   if (S.filtroGPC) {
     base = base.filter(function(m) { return S.gpcSaps.has(String(m.codigo_sap)); });
+  }
+
+  if (S.filtroMiscFT) {
+    base = base.filter(function(m) { return m.es_misc_ft; });
   }
 
   S.filtrados = !q ? base : base.filter(function(m) {
@@ -999,6 +1021,7 @@ function renderTabla() {
     const esNC     = m.es_gpc_no_cargado;
     const sapCell  = esNC
       ? `<span class="chip chip-gpc-nc">Sin SAP</span> <small style="color:var(--txt2)">${esc(m.wb_item_id||'')}</small>`
+        + (m.es_misc_ft ? ' <span class="chip" style="background:#fff7ed;border-color:#92400e;color:#92400e;font-weight:700">MISC</span>' : '')
       : `<code>${esc(m.codigo_sap)}</code>`;
     return `<tr class="${esNC ? 'row-gpc-nc' : ''}" onclick="abrirDetalle('${esc(matKey)}')">
       <td>${sapCell}</td>
