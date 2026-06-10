@@ -1127,6 +1127,12 @@ function renderGPC(items) {
       + (g.item_id_pbpg  ? '<dt>Item ID PB/PG</dt><dd>' + esc(g.item_id_pbpg) + '</dd>' : '')
       + (g.pag_spl       ? '<dt>Pág. SPL (Tab 2)</dt><dd>' + esc(g.pag_spl) + '</dd>' : '')
       + (g.pag_diagrama  ? '<dt>Pág. Diagrama (Tab 4)</dt><dd>' + esc(g.pag_diagrama) + '</dd>' : '')
+      + (g.misc_flame_tube
+          ? '<dt style="color:var(--acc);font-weight:700">Misc. Flame Tube</dt>'
+            + '<dd><strong>' + esc(g.misc_flame_tube.codigo_sap) + '</strong>'
+            + (g.misc_flame_tube.descripcion ? ' — ' + esc(g.misc_flame_tube.descripcion) : '')
+            + '</dd>'
+          : '')
       + (g.caracteristicas ? '<dt>Características</dt><dd>' + esc(g.caracteristicas) + '</dd>' : '')
       + '</dl>'
       + '</div>';
