@@ -485,24 +485,24 @@
           </div>
           <div>
             <label>Área</label>
-            <select name="area">
-              <option value=""></option>
-              <option>ACCESORIOS ELECTRICOS</option>
-              <option>ACCESORIOS I&C</option>
-              <option>ACCESORIOS MECANICOS</option>
-              <option>AEROENFRIADORES</option>
-              <option>CASA DE FILTROS</option>
-              <option>DIVERTER</option>
-              <option>GAS</option>
-              <option>HRSG</option>
-              <option>HVAC</option>
-              <option>INSTRUMENTACION</option>
-              <option>LABORATORIO</option>
-              <option>MODULO BASE</option>
-              <option>REPUESTOS ELECTRICOS</option>
-              <option>SIN AREA</option>
-              <option>VARIOS</option>
-            </select>
+            <input type="text" name="area" list="lista-areas" autocomplete="off" placeholder="Seleccionar o escribir área nueva">
+            <datalist id="lista-areas">
+              <option value="ACCESORIOS ELECTRICOS">
+              <option value="ACCESORIOS I&C">
+              <option value="ACCESORIOS MECANICOS">
+              <option value="AEROENFRIADORES">
+              <option value="CASA DE FILTROS">
+              <option value="DIVERTER">
+              <option value="GAS">
+              <option value="HRSG">
+              <option value="HVAC">
+              <option value="INSTRUMENTACION">
+              <option value="LABORATORIO">
+              <option value="MODULO BASE">
+              <option value="REPUESTOS ELECTRICOS">
+              <option value="SIN AREA">
+              <option value="VARIOS">
+            </datalist>
           </div>
           <div>
             <label>Ubicación en almacén</label>
