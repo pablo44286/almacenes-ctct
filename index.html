@@ -1351,6 +1351,20 @@ async function uploadImagen(codigoSAP, file) {
   });
 }
 
+function actualizarDatalistAreas() {
+  const dl = document.getElementById('lista-areas');
+  if (!dl) return;
+  const hardcoded = [
+    'ACCESORIOS ELECTRICOS','ACCESORIOS I&C','ACCESORIOS MECANICOS',
+    'AEROENFRIADORES','CASA DE FILTROS','DIVERTER','GAS','HRSG','HVAC',
+    'INSTRUMENTACION','LABORATORIO','MODULO BASE','REPUESTOS ELECTRICOS',
+    'SIN AREA','VARIOS'
+  ];
+  const deBase = S.materiales.map(function(m) { return (m.area || '').trim(); }).filter(Boolean);
+  const todas  = [...new Set([...hardcoded, ...deBase])].sort();
+  dl.innerHTML = todas.map(function(a) { return '<option value="' + esc(a) + '">'; }).join('');
+}
+
 function abrirAltaMaterial() {
   modoEdicion = false;
   S.matActivo = null;
@@ -1359,6 +1373,7 @@ function abrirAltaMaterial() {
   document.getElementById('form-img-preview').innerHTML = '';
   document.getElementById('inp-imagen-file').value = '';
   document.querySelector('[name=codigo_sap]').readOnly = false;
+  actualizarDatalistAreas();
   abrirOverlay('ov-material');
 }
 
@@ -1378,6 +1393,7 @@ function abrirEdicion(codigoSAP) {
     const el = form.querySelector(`[name=${f}]`);
     if (el) el.value = m[f] ?? '';
   });
+  actualizarDatalistAreas();
   document.querySelector('[name=codigo_sap]').readOnly = true;
   document.getElementById('inp-imagen-file').value = '';
   const imgSrc = driveImgUrl(m.imagen_url);
@@ -1398,6 +1414,9 @@ async function submitMaterial(e) {
   const form   = document.getElementById('form-material');
   const fd     = new FormData(form);
   const mat    = Object.fromEntries(fd.entries());
+  // Captura explícita del area (datalist puede no quedar en FormData en algunos navegadores)
+  const areaEl = form.querySelector('[name=area]');
+  if (areaEl) mat.area = areaEl.value.trim();
 
   mostrarLoading(true);
   try {
