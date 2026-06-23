@@ -1360,7 +1360,7 @@ function actualizarDatalistAreas() {
     'INSTRUMENTACION','LABORATORIO','MODULO BASE','REPUESTOS ELECTRICOS',
     'SIN AREA','VARIOS'
   ];
-  const deBase = S.materiales.map(function(m) { return (m.area || '').trim(); }).filter(Boolean);
+  const deBase = S.materiales.map(function(m) { return String(m.area || '').trim(); }).filter(Boolean);
   const todas  = [...new Set([...hardcoded, ...deBase])].sort();
   dl.innerHTML = todas.map(function(a) { return '<option value="' + esc(a) + '">'; }).join('');
 }
