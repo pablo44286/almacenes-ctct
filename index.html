@@ -277,6 +277,11 @@
     .row-gpc-nc:hover td { background: #fff3e0; }
     .chip-gpc-nc { background: #fff3e0; border-color: #fb8c00; color: #e65100; font-weight: 700; }
 
+    /* ── Duplicados ── */
+    .row-duplicado td { background: #fef9ec; }
+    .row-duplicado:hover td { background: #fef3c7; }
+    .chip-dup { background: #fef3c7; border-color: #d97706; color: #92400e; font-weight: 700; }
+
     /* ── Empty state ── */
     .empty { text-align: center; padding: 48px 24px; color: var(--txt2); }
     .empty svg { opacity: .3; margin-bottom: 12px; }
@@ -395,6 +400,7 @@
         <button class="btn-sec" id="btn-filtro-gpc" onclick="toggleFiltroGPC()">⚙ GPC</button>
         <button class="btn-sec" id="btn-filtro-gpc-nc" onclick="toggleFiltroGPCNoCargado()">📋 Sin SAP</button>
         <button class="btn-sec" id="btn-filtro-misc-ft" onclick="toggleFiltroMiscFT()" title="Miscelaneo por contrato (Omar)">🔧 Misc. FT</button>
+        <button class="btn-sec" id="btn-filtro-dup" onclick="toggleFiltroDuplicados()" title="Mostrar materiales con descripción duplicada">⚠ Duplicados</button>
         <button class="btn-sec btn-mob-hide" onclick="abrirAltaMasiva()">↑ Carga masiva</button>
         <button class="btn-sec btn-mob-hide" onclick="exportarCSV()">↓ Exportar CSV</button>
         <button class="btn-sec btn-mob-hide" onclick="abrirActualizarMasivo()">↺ Actualizar masivo</button>
@@ -773,7 +779,8 @@ const S = {
   filtroGPC:          false,
   filtroReponer:      false,
   filtroGPCNoCargado: false,
-  filtroMiscFT:       false
+  filtroMiscFT:       false,
+  filtroDuplicados:   false
 };
 
 // ═══════════════════════════════════════════════════════════
@@ -867,6 +874,7 @@ async function cargarMateriales() {
     if (!res.ok) throw new Error(res.error);
     const payload = res.data || {};
     S.materiales = payload.materiales || [];
+    computarDuplicados();
     S.filtrados  = S.materiales;
     S.pagina     = 0;
     S.sortCol    = null;
@@ -967,6 +975,30 @@ function resetBtnMiscFT() {
   btn.style.borderColor = S.filtroMiscFT ? '#92400e' : '';
 }
 
+function computarDuplicados() {
+  const normDesc = s => String(s).toUpperCase().trim().replace(/\s+/g, ' ');
+  const grupos = {};
+  S.materiales.forEach(function(m) {
+    const k = normDesc(m.material);
+    if (!k) return;
+    if (!grupos[k]) grupos[k] = [];
+    grupos[k].push(m);
+  });
+  S.materiales.forEach(function(m) { m._duplicado = false; });
+  Object.values(grupos).forEach(function(lista) {
+    if (lista.length > 1) lista.forEach(function(m) { m._duplicado = true; });
+  });
+}
+
+function toggleFiltroDuplicados() {
+  S.filtroDuplicados = !S.filtroDuplicados;
+  const btn = document.getElementById('btn-filtro-dup');
+  btn.style.background  = S.filtroDuplicados ? 'var(--warn)' : '';
+  btn.style.color       = S.filtroDuplicados ? '#fff' : '';
+  btn.style.borderColor = S.filtroDuplicados ? 'var(--warn)' : '';
+  ejecutarBusqueda();
+}
+
 function ejecutarBusqueda() {
   const q = document.getElementById('inp-buscar').value.trim().toLowerCase();
   const CAMPOS_BUSQUEDA = ['material','codigo_sap','codigo_material','marca','area','ubicacion','ubicacion_tecnica','imputacion','observaciones','wb_item_id','order_no'];
@@ -990,6 +1022,10 @@ function ejecutarBusqueda() {
       return S.miscFTpbpg.has(String(m.codigo_material || ''))
           || S.miscFTsaps.has(String(m.codigo_sap || ''));
     });
+  }
+
+  if (S.filtroDuplicados) {
+    base = base.filter(function(m) { return m._duplicado; });
   }
 
   S.filtrados = !q ? base : base.filter(function(m) {
@@ -1026,13 +1062,15 @@ function renderTabla() {
     const imgClass = m.imagen_url ? 'style="color:var(--ok);font-weight:700"' : 'style="color:var(--txt2)"';
     const matKey   = m.codigo_sap || m.id;
     const esNC     = m.es_gpc_no_cargado;
+    const esDup    = m._duplicado;
     const sapCell  = esNC
       ? `<span class="chip chip-gpc-nc">Sin SAP</span> <small style="color:var(--txt2)">${esc(m.wb_item_id||'')}</small>`
         + (m.es_misc_ft ? ' <span class="chip" style="background:#fff7ed;border-color:#92400e;color:#92400e;font-weight:700">MISC</span>' : '')
       : `<code>${esc(m.codigo_sap)}</code>`;
-    return `<tr class="${esNC ? 'row-gpc-nc' : ''}" onclick="abrirDetalle('${esc(matKey)}')">
+    const dupChip = (esDup && S.filtroDuplicados) ? ' <span class="chip chip-dup">DUP</span>' : '';
+    return `<tr class="${esNC ? 'row-gpc-nc' : ''} ${esDup && S.filtroDuplicados ? 'row-duplicado' : ''}" onclick="abrirDetalle('${esc(matKey)}')">
       <td>${sapCell}</td>
-      <td class="td-mat"><span title="${esc(m.material)}">${esc(m.material)}</span></td>
+      <td class="td-mat"><span title="${esc(m.material)}">${esc(m.material)}</span>${dupChip}</td>
       <td>${esc(m.codigo_material || '—')}</td>
       <td>${esc(m.marca || '—')}</td>
       <td><span class="chip">${esc(m.area || '—')}</span></td>
@@ -1084,8 +1122,10 @@ function irPagina(n) {
 }
 
 function actualizarStats() {
+  const nDup = S.materiales.filter(function(m) { return m._duplicado; }).length;
   document.getElementById('lbl-total').innerHTML =
-    `Total en base: <span class="badge">${S.materiales.length}</span>`;
+    `Total en base: <span class="badge">${S.materiales.length}</span>`
+    + (nDup ? ` — <span class="badge warn" title="Materiales con descripción duplicada — usar filtro ⚠ Duplicados">${nDup} duplicados</span>` : '');
   if (S.filtrados.length !== S.materiales.length) {
     document.getElementById('lbl-filtrados').innerHTML =
       `Mostrando: <span class="badge warn">${S.filtrados.length}</span>`;
