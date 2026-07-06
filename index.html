@@ -758,6 +758,10 @@
           <input type="number" id="inp-cant-conteo" min="5" value="10" style="width:100px">
           <button class="btn-pri" onclick="generarConteoFisico()">Generar al azar</button>
         </div>
+        <label style="display:flex;align-items:center;gap:6px;margin-top:10px;font-weight:400">
+          <input type="checkbox" id="chk-conteo-con-stock" style="width:auto">
+          Solo materiales con cantidad en sistema mayor a 0
+        </label>
       </div>
       <div id="conteo-doc" style="display:none"></div>
     </div>
@@ -1909,6 +1913,7 @@ async function abrirAuditoria() {
 // ═══════════════════════════════════════════════════════════
 function abrirConteoFisico() {
   document.getElementById('inp-cant-conteo').value = 10;
+  document.getElementById('chk-conteo-con-stock').checked = false;
   document.getElementById('conteo-doc').innerHTML   = '';
   document.getElementById('conteo-doc').style.display = 'none';
   document.getElementById('btn-imprimir-conteo').disabled = true;
@@ -1916,8 +1921,18 @@ function abrirConteoFisico() {
 }
 
 function generarConteoFisico() {
-  const inpCant = document.getElementById('inp-cant-conteo');
-  const cant    = Math.min(parseInt(inpCant.value, 10) || 0, S.materiales.length);
+  const inpCant   = document.getElementById('inp-cant-conteo');
+  const soloStock = document.getElementById('chk-conteo-con-stock').checked;
+  const disponibles = soloStock
+    ? S.materiales.filter(m => Number(m.cantidad) > 0)
+    : S.materiales;
+
+  if (soloStock && !disponibles.length) {
+    toast('No hay materiales con cantidad en sistema mayor a 0', 'err');
+    return;
+  }
+
+  const cant = Math.min(parseInt(inpCant.value, 10) || 0, disponibles.length);
 
   if (!cant || cant < 5) {
     toast('La cantidad mínima es 5 materiales', 'err');
@@ -1926,12 +1941,12 @@ function generarConteoFisico() {
   }
 
   // Selección aleatoria sin repetición (Fisher-Yates parcial)
-  const indices = S.materiales.map((_, i) => i);
+  const indices = disponibles.map((_, i) => i);
   for (let i = indices.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [indices[i], indices[j]] = [indices[j], indices[i]];
   }
-  const seleccion = indices.slice(0, cant).map(i => S.materiales[i]);
+  const seleccion = indices.slice(0, cant).map(i => disponibles[i]);
 
   const filas = seleccion.map((m, i) => `
     <tr>
