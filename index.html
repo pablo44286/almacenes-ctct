@@ -156,6 +156,32 @@
       display: flex; gap: 10px; justify-content: flex-end;
     }
 
+    /* ── Conteo físico mensual ── */
+    .conteo-controles { margin-bottom: 20px; }
+    .conteo-controles label { margin-bottom: 8px; }
+    #conteo-doc { color: #111; }
+    .conteo-header { text-align: center; margin-bottom: 16px; }
+    .conteo-header h1 { font-size: 18px; margin-bottom: 4px; }
+    .conteo-datos { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 13px; }
+    .conteo-datos td { padding: 6px 8px; border: 1px solid #ccc; }
+    .conteo-tabla { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .conteo-tabla th, .conteo-tabla td { border: 1px solid #999; padding: 6px 8px; text-align: left; }
+    .conteo-tabla th { background: #eee; color: #111; }
+    .conteo-tabla .celda-vacia { min-width: 70px; }
+    .conteo-firmas { display: flex; justify-content: space-around; margin-top: 48px; }
+    .conteo-firmas .firma { text-align: center; width: 40%; }
+    .conteo-firmas .linea { border-top: 1px solid #333; margin-bottom: 6px; }
+
+    @media print {
+      body * { visibility: hidden; }
+      #conteo-doc, #conteo-doc * { visibility: visible; }
+      #conteo-doc {
+        display: block !important; position: absolute; top: 0; left: 0;
+        width: 100%; padding: 20px;
+      }
+      .no-print { display: none !important; }
+    }
+
     /* ── Formularios ── */
     .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
     .form-grid .span2 { grid-column: span 2; }
@@ -405,6 +431,7 @@
         <button class="btn-sec btn-mob-hide" onclick="exportarCSV()">↓ Exportar CSV</button>
         <button class="btn-sec btn-mob-hide" onclick="abrirActualizarMasivo()">↺ Actualizar masivo</button>
         <button class="btn-sec admin-only btn-mob-hide" onclick="abrirAuditoria()" style="display:none">Auditoría</button>
+        <button class="btn-sec admin-only btn-mob-hide" id="btn-conteo-fisico" onclick="abrirConteoFisico()" style="display:none" title="Genera una planilla imprimible con materiales al azar para el conteo físico mensual">📝 Conteo físico</button>
       </div>
     </div>
   </div>
@@ -712,6 +739,30 @@
     </div>
     <div class="modal-footer">
       <button class="btn-sec" onclick="cerrarOverlay('ov-auditoria')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: CONTEO FÍSICO MENSUAL ══════════════════════════ -->
+<div class="overlay" id="ov-conteo-fisico">
+  <div class="modal" style="max-width:900px">
+    <div class="modal-header no-print">
+      <h2>Conteo físico mensual</h2>
+      <button class="close" onclick="cerrarOverlay('ov-conteo-fisico')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="conteo-controles no-print">
+        <label for="inp-cant-conteo">Cantidad de materiales a auditar (mínimo 5)</label>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <input type="number" id="inp-cant-conteo" min="5" value="10" style="width:100px">
+          <button class="btn-pri" onclick="generarConteoFisico()">Generar al azar</button>
+        </div>
+      </div>
+      <div id="conteo-doc" style="display:none"></div>
+    </div>
+    <div class="modal-footer no-print">
+      <button class="btn-sec" onclick="cerrarOverlay('ov-conteo-fisico')">Cerrar</button>
+      <button class="btn-pri" id="btn-imprimir-conteo" onclick="window.print()" disabled>Imprimir / Guardar PDF</button>
     </div>
   </div>
 </div>
@@ -1850,6 +1901,82 @@ async function abrirAuditoria() {
   } finally {
     mostrarLoading(false);
   }
+}
+
+// ═══════════════════════════════════════════════════════════
+// CONTEO FÍSICO MENSUAL — auditoría al azar del responsable de almacén
+// ═══════════════════════════════════════════════════════════
+function abrirConteoFisico() {
+  document.getElementById('inp-cant-conteo').value = 10;
+  document.getElementById('conteo-doc').innerHTML   = '';
+  document.getElementById('conteo-doc').style.display = 'none';
+  document.getElementById('btn-imprimir-conteo').disabled = true;
+  abrirOverlay('ov-conteo-fisico');
+}
+
+function generarConteoFisico() {
+  const inpCant = document.getElementById('inp-cant-conteo');
+  const cant    = Math.min(parseInt(inpCant.value, 10) || 0, S.materiales.length);
+
+  if (!cant || cant < 5) {
+    toast('La cantidad mínima es 5 materiales', 'err');
+    inpCant.value = 5;
+    return;
+  }
+
+  // Selección aleatoria sin repetición (Fisher-Yates parcial)
+  const indices = S.materiales.map((_, i) => i);
+  for (let i = indices.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [indices[i], indices[j]] = [indices[j], indices[i]];
+  }
+  const seleccion = indices.slice(0, cant).map(i => S.materiales[i]);
+
+  const filas = seleccion.map((m, i) => `
+    <tr>
+      <td>${i + 1}</td>
+      <td>${esc(m.codigo_sap)}</td>
+      <td>${esc(m.material)}</td>
+      <td>${esc(m.ubicacion)}</td>
+      <td>${esc(m.area)}</td>
+      <td style="text-align:right">${esc(m.cantidad)}</td>
+      <td class="celda-vacia"></td>
+      <td class="celda-vacia"></td>
+      <td class="celda-vacia"></td>
+    </tr>`).join('');
+
+  document.getElementById('conteo-doc').innerHTML = `
+    <div class="conteo-header">
+      <h1>Auditoría de Almacén — Conteo Físico Mensual</h1>
+      <p>CTCT — Grupo Albanesi</p>
+    </div>
+    <table class="conteo-datos">
+      <tr>
+        <td><strong>Fecha:</strong> ${fechaHoy()}</td>
+        <td><strong>Materiales auditados:</strong> ${seleccion.length}</td>
+      </tr>
+      <tr>
+        <td><strong>Auditor (Jefe de Mantenimiento):</strong> ${esc(S.usuario)}</td>
+        <td><strong>Responsable de Almacén:</strong> Lucas Armando</td>
+      </tr>
+    </table>
+    <table class="conteo-tabla">
+      <thead>
+        <tr>
+          <th>N°</th><th>Código SAP</th><th>Material</th><th>Ubicación</th><th>Área</th>
+          <th>Cant. Sistema</th><th>Cant. Física</th><th>Diferencia</th><th>Observaciones</th>
+        </tr>
+      </thead>
+      <tbody>${filas}</tbody>
+    </table>
+    <div class="conteo-firmas">
+      <div class="firma"><div class="linea"></div><span>Firma Auditor</span></div>
+      <div class="firma"><div class="linea"></div><span>Firma Responsable de Almacén</span></div>
+    </div>
+  `;
+  document.getElementById('conteo-doc').style.display = 'block';
+  document.getElementById('btn-imprimir-conteo').disabled = false;
+  toast(`Documento generado con ${seleccion.length} materiales al azar`, 'ok');
 }
 
 // ═══════════════════════════════════════════════════════════
