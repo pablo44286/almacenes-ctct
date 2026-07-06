@@ -160,7 +160,8 @@
     .conteo-controles { margin-bottom: 20px; }
     .conteo-controles label { margin-bottom: 8px; }
     #conteo-doc { color: #111; }
-    .conteo-header { text-align: center; margin-bottom: 16px; }
+    .conteo-header { display: flex; align-items: center; justify-content: center; gap: 14px; text-align: center; margin-bottom: 16px; }
+    .conteo-header .conteo-logo { height: 48px; border-radius: 4px; object-fit: contain; }
     .conteo-header h1 { font-size: 18px; margin-bottom: 4px; }
     .conteo-datos { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 13px; }
     .conteo-datos td { padding: 6px 8px; border: 1px solid #ccc; }
@@ -1947,8 +1948,11 @@ function generarConteoFisico() {
 
   document.getElementById('conteo-doc').innerHTML = `
     <div class="conteo-header">
-      <h1>Auditoría de Almacén — Conteo Físico Mensual</h1>
-      <p>CTCT — Grupo Albanesi</p>
+      <img src="CTCT.jpg" alt="CTCT" class="conteo-logo">
+      <div>
+        <h1>Auditoría de Almacén — Conteo Físico Mensual</h1>
+        <p>CTCT — Grupo Albanesi</p>
+      </div>
     </div>
     <table class="conteo-datos">
       <tr>
