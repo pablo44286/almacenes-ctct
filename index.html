@@ -103,11 +103,14 @@
       border-radius: 10px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
     thead { background: var(--pri); color: #fff; }
     th { padding: 10px 12px; text-align: left; font-weight: 600; font-size: 12px;
-      white-space: nowrap; }
+      white-space: nowrap; position: relative; }
     th.sortable { cursor: pointer; user-select: none; }
     th.sortable:hover { background: var(--pri-l); }
     th.sort-asc::after  { content: ' ↑'; opacity: .9; }
     th.sort-desc::after { content: ' ↓'; opacity: .9; }
+    .col-resizer { position: absolute; top: 0; right: -3px; width: 6px; height: 100%;
+      cursor: col-resize; z-index: 3; }
+    .col-resizer:hover, .col-resizer.resizing { background: rgba(255,255,255,.35); }
     td { padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
     tr:last-child td { border-bottom: none; }
     tr:hover td { background: #f8fafc; }
@@ -348,7 +351,11 @@
       #thead-row th:nth-child(6), tbody td:nth-child(6),
       #thead-row th:nth-child(7), tbody td:nth-child(7),
       #thead-row th:nth-child(9), tbody td:nth-child(9),
-      #thead-row th:nth-child(10), tbody td:nth-child(10) { display: none; }
+      #thead-row th:nth-child(10), tbody td:nth-child(10),
+      colgroup col:nth-child(3), colgroup col:nth-child(4), colgroup col:nth-child(5),
+      colgroup col:nth-child(6), colgroup col:nth-child(7), colgroup col:nth-child(9),
+      colgroup col:nth-child(10) { display: none; }
+      .col-resizer { display: none; }
       .td-mat span { max-width: 160px; }
       /* Fila completa tappable */
       tbody tr { cursor: pointer; }
@@ -446,17 +453,17 @@
     <table>
       <thead>
         <tr id="thead-row">
-          <th class="sortable" onclick="sortarPor('codigo_sap')">SAP</th>
-          <th class="sortable" onclick="sortarPor('material')">Material</th>
-          <th class="sortable" onclick="sortarPor('codigo_material')">Cód. material</th>
-          <th class="sortable" onclick="sortarPor('marca')">Marca</th>
-          <th class="sortable" onclick="sortarPor('area')">Área</th>
-          <th class="sortable" onclick="sortarPor('ubicacion')">Ubicación</th>
-          <th class="sortable" onclick="sortarPor('ubicacion_tecnica')">Ubic. técnica</th>
-          <th class="sortable" onclick="sortarPor('cantidad')">Cantidad</th>
-          <th>Observaciones</th>
-          <th class="sortable" onclick="sortarPor('imagen_url')">Img</th>
-          <th>Acciones</th>
+          <th class="sortable" onclick="sortarPor('codigo_sap')">SAP<span class="col-resizer" onmousedown="iniciarResizeColumna(event,0)" onclick="event.stopPropagation()"></span></th>
+          <th class="sortable" onclick="sortarPor('material')">Material<span class="col-resizer" onmousedown="iniciarResizeColumna(event,1)" onclick="event.stopPropagation()"></span></th>
+          <th class="sortable" onclick="sortarPor('codigo_material')">Cód. material<span class="col-resizer" onmousedown="iniciarResizeColumna(event,2)" onclick="event.stopPropagation()"></span></th>
+          <th class="sortable" onclick="sortarPor('marca')">Marca<span class="col-resizer" onmousedown="iniciarResizeColumna(event,3)" onclick="event.stopPropagation()"></span></th>
+          <th class="sortable" onclick="sortarPor('area')">Área<span class="col-resizer" onmousedown="iniciarResizeColumna(event,4)" onclick="event.stopPropagation()"></span></th>
+          <th class="sortable" onclick="sortarPor('ubicacion')">Ubicación<span class="col-resizer" onmousedown="iniciarResizeColumna(event,5)" onclick="event.stopPropagation()"></span></th>
+          <th class="sortable" onclick="sortarPor('ubicacion_tecnica')">Ubic. técnica<span class="col-resizer" onmousedown="iniciarResizeColumna(event,6)" onclick="event.stopPropagation()"></span></th>
+          <th class="sortable" onclick="sortarPor('cantidad')">Cantidad<span class="col-resizer" onmousedown="iniciarResizeColumna(event,7)" onclick="event.stopPropagation()"></span></th>
+          <th>Observaciones<span class="col-resizer" onmousedown="iniciarResizeColumna(event,8)" onclick="event.stopPropagation()"></span></th>
+          <th class="sortable" onclick="sortarPor('imagen_url')">Img<span class="col-resizer" onmousedown="iniciarResizeColumna(event,9)" onclick="event.stopPropagation()"></span></th>
+          <th>Acciones<span class="col-resizer" onmousedown="iniciarResizeColumna(event,10)" onclick="event.stopPropagation()"></span></th>
         </tr>
       </thead>
       <tbody id="tbody"></tbody>
@@ -2138,6 +2145,81 @@ document.querySelectorAll('.overlay').forEach(ov => {
     if (e.target === ov) cerrarOverlay(ov.id);
   });
 });
+
+// ═══════════════════════════════════════════════════════════
+// COLUMNAS REDIMENSIONABLES (tabla principal)
+// ═══════════════════════════════════════════════════════════
+const COL_COUNT      = 11;
+const LS_COL_WIDTHS  = 'ctct_col_widths';
+let resizeColState    = null;
+
+function tablaPrincipal() {
+  return document.querySelector('.table-wrap > table');
+}
+
+function asegurarColgroup(table) {
+  let colgroup = table.querySelector('colgroup');
+  if (!colgroup) {
+    colgroup = document.createElement('colgroup');
+    for (let i = 0; i < COL_COUNT; i++) colgroup.appendChild(document.createElement('col'));
+    table.insertBefore(colgroup, table.firstChild);
+  }
+  return colgroup;
+}
+
+function inicializarColumnasRedimensionables() {
+  const table = tablaPrincipal();
+  const colgroup = asegurarColgroup(table);
+  const guardados = JSON.parse(localStorage.getItem(LS_COL_WIDTHS) || 'null');
+  if (Array.isArray(guardados) && guardados.length === COL_COUNT) {
+    const cols = colgroup.querySelectorAll('col');
+    guardados.forEach((w, i) => { if (w) cols[i].style.width = w + 'px'; });
+    table.style.tableLayout = 'fixed';
+  }
+}
+
+function iniciarResizeColumna(e, colIndex) {
+  e.preventDefault();
+  const table = tablaPrincipal();
+  const colgroup = asegurarColgroup(table);
+  const cols = colgroup.querySelectorAll('col');
+
+  if (table.style.tableLayout !== 'fixed') {
+    // Fijar los anchos actuales para que redimensionar una columna no reacomode las demás
+    document.querySelectorAll('#thead-row th').forEach((th, i) => {
+      cols[i].style.width = th.getBoundingClientRect().width + 'px';
+    });
+    table.style.tableLayout = 'fixed';
+  }
+
+  resizeColState = {
+    col: cols[colIndex],
+    startX: e.clientX,
+    startWidth: cols[colIndex].getBoundingClientRect().width
+  };
+  e.target.classList.add('resizing');
+  document.addEventListener('mousemove', onResizeColMove);
+  document.addEventListener('mouseup', onResizeColEnd);
+}
+
+function onResizeColMove(e) {
+  if (!resizeColState) return;
+  const nuevoAncho = Math.max(50, resizeColState.startWidth + (e.clientX - resizeColState.startX));
+  resizeColState.col.style.width = nuevoAncho + 'px';
+}
+
+function onResizeColEnd() {
+  if (!resizeColState) return;
+  resizeColState = null;
+  document.querySelectorAll('.col-resizer.resizing').forEach(el => el.classList.remove('resizing'));
+  document.removeEventListener('mousemove', onResizeColMove);
+  document.removeEventListener('mouseup', onResizeColEnd);
+  const cols = tablaPrincipal().querySelectorAll('colgroup col');
+  const anchos = [...cols].map(c => parseInt(c.style.width, 10) || null);
+  localStorage.setItem(LS_COL_WIDTHS, JSON.stringify(anchos));
+}
+
+inicializarColumnasRedimensionables();
 
 function mostrarLoading(v) {
   document.getElementById('loading').classList.toggle('show', v);
