@@ -168,21 +168,45 @@
     .conteo-header h1 { font-size: 18px; margin-bottom: 4px; }
     .conteo-datos { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 13px; }
     .conteo-datos td { padding: 6px 8px; border: 1px solid #ccc; }
-    .conteo-tabla { width: 100%; border-collapse: collapse; font-size: 13px; }
-    .conteo-tabla th, .conteo-tabla td { border: 1px solid #999; padding: 6px 8px; text-align: left; }
+    .conteo-tabla { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 13px; }
+    .conteo-tabla th, .conteo-tabla td { border: 1px solid #999; padding: 6px 8px; text-align: left;
+      overflow-wrap: break-word; }
     .conteo-tabla th { background: #eee; color: #111; }
-    .conteo-tabla .celda-vacia { min-width: 70px; }
+    .conteo-tabla .celda-vacia { min-width: 0; }
+    .conteo-tabla col.col-n     { width: 4%; }
+    .conteo-tabla col.col-sap   { width: 11%; }
+    .conteo-tabla col.col-mat   { width: 25%; }
+    .conteo-tabla col.col-ubic  { width: 9%; }
+    .conteo-tabla col.col-area  { width: 12%; }
+    .conteo-tabla col.col-csis  { width: 9%; }
+    .conteo-tabla col.col-cfis  { width: 9%; }
+    .conteo-tabla col.col-dif   { width: 8%; }
+    .conteo-tabla col.col-obs   { width: 13%; }
     .conteo-firmas { display: flex; justify-content: space-around; margin-top: 48px; }
     .conteo-firmas .firma { text-align: center; width: 40%; }
     .conteo-firmas .linea { border-top: 1px solid #333; margin-bottom: 6px; }
 
     @media print {
+      /* La tabla tiene 9 columnas (3 para completar a mano) — en vertical
+         no entra y recorta la última columna. Horizontal da más ancho. */
+      @page { size: landscape; margin: 10mm; }
       body * { visibility: hidden; }
       #conteo-doc, #conteo-doc * { visibility: visible; }
-      #conteo-doc {
-        display: block !important; position: absolute; top: 0; left: 0;
-        width: 100%; padding: 20px;
+      /* El resto del body (app con su tabla, login, etc.) queda invisible pero
+         sigue ocupando espacio en el flujo normal — hay que colapsarlo o el
+         documento aparece empujado varias páginas en blanco hacia abajo. */
+      #app, #login-screen { display: none !important; }
+      /* Sacar a #conteo-doc de la cadena position:fixed/overflow del overlay/modal:
+         si no, Chrome lo trata como una "foto" del viewport y repite la misma
+         porción en cada página en vez de paginar la tabla completa. */
+      #ov-conteo-fisico, #ov-conteo-fisico .modal, #ov-conteo-fisico .modal-body {
+        position: static !important; overflow: visible !important;
+        height: auto !important; max-height: none !important;
+        width: 100% !important; max-width: none !important;
+        padding: 0 !important; margin: 0 !important; background: none !important;
+        box-shadow: none !important; display: block !important;
       }
+      #conteo-doc { display: block !important; width: 100%; padding: 20px; }
       .no-print { display: none !important; }
     }
 
@@ -1987,6 +2011,11 @@ function generarConteoFisico() {
       </tr>
     </table>
     <table class="conteo-tabla">
+      <colgroup>
+        <col class="col-n"><col class="col-sap"><col class="col-mat"><col class="col-ubic">
+        <col class="col-area"><col class="col-csis"><col class="col-cfis"><col class="col-dif">
+        <col class="col-obs">
+      </colgroup>
       <thead>
         <tr>
           <th>N°</th><th>Código SAP</th><th>Material</th><th>Ubicación</th><th>Área</th>
