@@ -186,6 +186,23 @@
     .conteo-firmas .firma { text-align: center; width: 40%; }
     .conteo-firmas .linea { border-top: 1px solid #333; margin-bottom: 6px; }
 
+    /* ── KPIs de ubicación ── */
+    .kpi-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .kpi-card { border: 1px solid var(--border); border-radius: 10px; padding: 18px; }
+    .kpi-label { font-size: 13px; font-weight: 600; color: var(--txt2); margin-bottom: 10px; }
+    .kpi-value { font-size: 36px; font-weight: 800; line-height: 1; margin-bottom: 8px; }
+    .kpi-card.kpi-green  .kpi-value { color: var(--ok); }
+    .kpi-card.kpi-amber  .kpi-value { color: var(--warn); }
+    .kpi-card.kpi-red    .kpi-value { color: var(--err); }
+    .kpi-bar { height: 8px; background: var(--bg); border-radius: 99px; overflow: hidden; margin-bottom: 8px; }
+    .kpi-bar-fill { height: 100%; border-radius: 99px; transition: width .3s ease; }
+    .kpi-card.kpi-green  .kpi-bar-fill { background: var(--ok); }
+    .kpi-card.kpi-amber  .kpi-bar-fill { background: var(--warn); }
+    .kpi-card.kpi-red    .kpi-bar-fill { background: var(--err); }
+    .kpi-detalle { font-size: 12px; color: var(--txt2); }
+    .kpi-meta { font-size: 11px; color: var(--txt2); margin-top: 6px; }
+    @media (max-width: 640px) { .kpi-grid { grid-template-columns: 1fr; } }
+
     @media print {
       /* La tabla tiene 9 columnas (3 para completar a mano) — en vertical
          no entra y recorta la última columna. Horizontal da más ancho. */
@@ -464,6 +481,7 @@
         <button class="btn-sec btn-mob-hide" onclick="abrirActualizarMasivo()">↺ Actualizar masivo</button>
         <button class="btn-sec admin-only btn-mob-hide" onclick="abrirAuditoria()" style="display:none">Auditoría</button>
         <button class="btn-sec admin-only btn-mob-hide" id="btn-conteo-fisico" onclick="abrirConteoFisico()" style="display:none" title="Genera una planilla imprimible con materiales al azar para el conteo físico mensual">📝 Conteo físico</button>
+        <button class="btn-sec admin-only btn-mob-hide" id="btn-kpis" onclick="abrirKPIs()" style="display:none" title="KPIs de calidad de ubicación (Plan de Mejora del Maestro de Materiales)">📊 KPIs</button>
       </div>
     </div>
   </div>
@@ -803,6 +821,45 @@
   </div>
 </div>
 
+<!-- ══ MODAL: KPIs UBICACIÓN ═════════════════════════════════ -->
+<div class="overlay" id="ov-kpis">
+  <div class="modal" style="max-width:900px">
+    <div class="modal-header">
+      <h2>KPIs de ubicación — Plan de Mejora del Maestro de Materiales</h2>
+      <button class="close" onclick="cerrarOverlay('ov-kpis')">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:12px;color:var(--txt2);margin-bottom:16px">
+        Calculado en vivo sobre los materiales cargados en la app (excluye ítems "Sin SAP" del catálogo GPC).
+        No incluye valorización en ARS: falta cargar el valor unitario de cada material en la base.
+      </p>
+      <div class="kpi-grid">
+        <div class="kpi-card" id="kpi-card-1">
+          <div class="kpi-label">KPI 1 — % de materiales con ubicación válida</div>
+          <div class="kpi-value" id="kpi1-valor">—</div>
+          <div class="kpi-bar"><div class="kpi-bar-fill" id="kpi1-bar"></div></div>
+          <div class="kpi-detalle" id="kpi1-detalle">—</div>
+          <div class="kpi-meta">Meta: 95%</div>
+        </div>
+        <div class="kpi-card" id="kpi-card-2">
+          <div class="kpi-label">KPI 2 — Materiales con stock y sin ubicación válida</div>
+          <div class="kpi-value" id="kpi2-valor">—</div>
+          <div class="kpi-detalle" id="kpi2-detalle">—</div>
+          <div class="kpi-meta">Meta: 0 materiales</div>
+          <button class="btn-sec btn-sm" style="margin-top:10px" onclick="exportarKPI2CSV()">↓ Descargar listado</button>
+        </div>
+      </div>
+      <p style="font-size:11px;color:var(--txt2);margin-top:18px">
+        Formato de ubicación válido: dos dígitos + dos letras + dos dígitos, guion, dos dígitos (ej. 10BB02-30).
+        Solo se considera stock de libre utilización (campo Cantidad en almacén de la app).
+      </p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-sec" onclick="cerrarOverlay('ov-kpis')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
 <!-- ══ MODAL: SCANNER ════════════════════════════════════════ -->
 <div class="overlay" id="ov-scanner">
   <div class="modal" style="max-width:420px">
@@ -857,6 +914,7 @@ const S = {
   esAdmin:    false,
   matActivo:  null,
   csvData:    null,
+  kpi2Lista:  [],
   sortCol:    null,
   sortDir:    1,     // 1 = asc, -1 = desc
   gpcSaps:            new Set(),
@@ -2032,6 +2090,78 @@ function generarConteoFisico() {
   document.getElementById('conteo-doc').style.display = 'block';
   document.getElementById('btn-imprimir-conteo').disabled = false;
   toast(`Documento generado con ${seleccion.length} materiales al azar`, 'ok');
+}
+
+// ═══════════════════════════════════════════════════════════
+// KPIs DE UBICACIÓN — Plan de Mejora del Maestro de Materiales (ID 1 e ID 2)
+// ═══════════════════════════════════════════════════════════
+const KPI_UBICACION_REGEX = /^\d{2}[A-Z]{2}\d{2}-\d{2}$/;
+const KPI1_META_PCT = 95;
+
+function calcularKPIsUbicacion() {
+  // Se excluyen los ítems "Sin SAP" del catálogo GPC: no son materiales
+  // realmente cargados en el almacén, siempre tienen ubicación vacía y
+  // distorsionarían el % (no forman parte del universo de la Spec).
+  const materiales = S.materiales.filter(m => !m.es_gpc_no_cargado);
+
+  const validos = materiales.filter(m => KPI_UBICACION_REGEX.test(String(m.ubicacion || '').trim()));
+  const pctValido = materiales.length ? (validos.length / materiales.length) * 100 : 0;
+
+  const afectados = materiales.filter(m =>
+    Number(m.cantidad) > 0 && !KPI_UBICACION_REGEX.test(String(m.ubicacion || '').trim())
+  ).sort((a, b) => Number(b.cantidad) - Number(a.cantidad));
+
+  return {
+    kpi1: { pct: pctValido, validos: validos.length, total: materiales.length },
+    kpi2: { afectados }
+  };
+}
+
+function colorPorUmbral(valor, verdeDesde, amberDesde) {
+  if (valor >= verdeDesde) return 'kpi-green';
+  if (valor >= amberDesde) return 'kpi-amber';
+  return 'kpi-red';
+}
+
+function abrirKPIs() {
+  const { kpi1, kpi2 } = calcularKPIsUbicacion();
+
+  const card1 = document.getElementById('kpi-card-1');
+  card1.className = 'kpi-card ' + colorPorUmbral(kpi1.pct, KPI1_META_PCT, 80);
+  document.getElementById('kpi1-valor').textContent = kpi1.pct.toFixed(1) + '%';
+  document.getElementById('kpi1-bar').style.width = Math.min(100, kpi1.pct) + '%';
+  document.getElementById('kpi1-detalle').textContent =
+    `${kpi1.validos.toLocaleString('es-AR')} de ${kpi1.total.toLocaleString('es-AR')} materiales con ubicación válida`;
+
+  const card2 = document.getElementById('kpi-card-2');
+  const cant2 = kpi2.afectados.length;
+  const color2 = cant2 === 0 ? 'kpi-green' : (cant2 <= 100 ? 'kpi-amber' : 'kpi-red');
+  card2.className = 'kpi-card ' + color2;
+  document.getElementById('kpi2-valor').textContent = cant2.toLocaleString('es-AR');
+  document.getElementById('kpi2-detalle').textContent =
+    cant2 === 0
+      ? 'Sin materiales en riesgo'
+      : `Con stock en sistema pero sin ubicación válida · Valor en ARS no disponible (falta valorización en la base)`;
+
+  S.kpi2Lista = kpi2.afectados;
+  abrirOverlay('ov-kpis');
+}
+
+function exportarKPI2CSV() {
+  const lista = S.kpi2Lista || [];
+  if (!lista.length) { toast('No hay materiales para exportar', 'err'); return; }
+  const cols   = ['codigo_sap', 'material', 'ubicacion', 'area', 'cantidad'];
+  const header = cols.join(';');
+  const rows   = lista.map(m => cols.map(c => `"${String(m[c] ?? '').replace(/"/g, '""')}"`).join(';'));
+  const csv    = '﻿' + [header, ...rows].join('\r\n');
+  const blob   = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url    = URL.createObjectURL(blob);
+  const a      = Object.assign(document.createElement('a'), {
+    href: url, download: `KPI2_sin_ubicacion_${fechaHoy()}.csv`
+  });
+  a.click();
+  URL.revokeObjectURL(url);
+  toast(`${lista.length} materiales exportados`, 'ok');
 }
 
 // ═══════════════════════════════════════════════════════════
