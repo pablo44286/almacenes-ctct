@@ -200,6 +200,8 @@
     .kpi-card.kpi-amber  .kpi-bar-fill { background: var(--warn); }
     .kpi-card.kpi-red    .kpi-bar-fill { background: var(--err); }
     .kpi-detalle { font-size: 12px; color: var(--txt2); }
+    .kpi-desglose { font-size: 11px; color: var(--txt2); margin-top: 8px; display: flex; flex-direction: column; gap: 2px; }
+    .kpi-desglose strong { color: var(--txt); }
     .kpi-meta { font-size: 11px; color: var(--txt2); margin-top: 6px; }
     @media (max-width: 640px) { .kpi-grid { grid-template-columns: 1fr; } }
 
@@ -823,15 +825,17 @@
 
 <!-- ══ MODAL: KPIs UBICACIÓN ═════════════════════════════════ -->
 <div class="overlay" id="ov-kpis">
-  <div class="modal" style="max-width:900px">
+  <div class="modal" style="max-width:960px">
     <div class="modal-header">
-      <h2>KPIs de ubicación — Plan de Mejora del Maestro de Materiales</h2>
+      <h2>KPIs del Plan de Mejora del Maestro de Materiales (ID 1 a ID 4)</h2>
       <button class="close" onclick="cerrarOverlay('ov-kpis')">✕</button>
     </div>
     <div class="modal-body">
       <p style="font-size:12px;color:var(--txt2);margin-bottom:16px">
         Calculado en vivo sobre los materiales cargados en la app (excluye ítems "Sin SAP" del catálogo GPC).
-        No incluye valorización en ARS: falta cargar el valor unitario de cada material en la base.
+        El desglose del KPI 1 y los KPI 3/4 usan una clasificación aproximada por texto — no son un match exacto
+        con la planilla de detalle que arma Lucas a mano. KPI 2 no incluye valorización en ARS: falta cargar el
+        valor unitario de cada material en la base.
       </p>
       <div class="kpi-grid">
         <div class="kpi-card" id="kpi-card-1">
@@ -839,7 +843,8 @@
           <div class="kpi-value" id="kpi1-valor">—</div>
           <div class="kpi-bar"><div class="kpi-bar-fill" id="kpi1-bar"></div></div>
           <div class="kpi-detalle" id="kpi1-detalle">—</div>
-          <div class="kpi-meta">Meta: 95%</div>
+          <div class="kpi-desglose" id="kpi1-desglose"></div>
+          <div class="kpi-meta">Meta: 95% · zonas oficiales: 10, 20, 30, 41-49, 50</div>
         </div>
         <div class="kpi-card" id="kpi-card-2">
           <div class="kpi-label">KPI 2 — Materiales con stock y sin ubicación válida</div>
@@ -848,10 +853,25 @@
           <div class="kpi-meta">Meta: 0 materiales</div>
           <button class="btn-sec btn-sm" style="margin-top:10px" onclick="exportarKPI2CSV()">↓ Descargar listado</button>
         </div>
+        <div class="kpi-card" id="kpi-card-3">
+          <div class="kpi-label">KPI 3 — Grupos duplicados con stock mixto</div>
+          <div class="kpi-value" id="kpi3-valor">—</div>
+          <div class="kpi-detalle" id="kpi3-detalle">—</div>
+          <div class="kpi-meta">Meta: 0 grupos sin consolidar</div>
+          <button class="btn-sec btn-sm" style="margin-top:10px" onclick="exportarKPI3CSV()">↓ Descargar listado</button>
+        </div>
+        <div class="kpi-card" id="kpi-card-4">
+          <div class="kpi-label">KPI 4 — Descripciones duplicadas sin consolidar</div>
+          <div class="kpi-value" id="kpi4-valor">—</div>
+          <div class="kpi-detalle" id="kpi4-detalle">—</div>
+          <div class="kpi-meta">Meta: 0 grupos sin consolidar</div>
+          <button class="btn-sec btn-sm" style="margin-top:10px" onclick="exportarKPI4CSV()">↓ Descargar listado</button>
+        </div>
       </div>
       <p style="font-size:11px;color:var(--txt2);margin-top:18px">
-        Formato de ubicación válido: dos dígitos + dos letras + dos dígitos, guion, dos dígitos (ej. 10BB02-30).
-        Solo se considera stock de libre utilización (campo Cantidad en almacén de la app).
+        Formato de ubicación válido: prefijo de zona oficial (2 dígitos) + dos letras + dos dígitos, guion,
+        dos dígitos (ej. 10BB02-30). Solo se considera stock de libre utilización (campo Cantidad en almacén
+        de la app). KPI 3/4 agrupan por descripción normalizada y excluyen materiales marcados "NO UTILIZAR".
       </p>
     </div>
     <div class="modal-footer">
@@ -915,6 +935,8 @@ const S = {
   matActivo:  null,
   csvData:    null,
   kpi2Lista:  [],
+  kpi3Grupos: [],
+  kpi4Grupos: [],
   sortCol:    null,
   sortDir:    1,     // 1 = asc, -1 = desc
   gpcSaps:            new Set(),
@@ -2093,10 +2115,25 @@ function generarConteoFisico() {
 }
 
 // ═══════════════════════════════════════════════════════════
-// KPIs DE UBICACIÓN — Plan de Mejora del Maestro de Materiales (ID 1 e ID 2)
+// KPIs DEL PLAN DE MEJORA DEL MAESTRO DE MATERIALES (ID 1 a ID 4)
 // ═══════════════════════════════════════════════════════════
-const KPI_UBICACION_REGEX = /^\d{2}[A-Z]{2}\d{2}-\d{2}$/;
+// Formato reforzado confirmado con Lucas (11/08/2026): el prefijo de zona
+// no es libre, tiene que ser una de las 13 zonas oficiales del almacén.
+const KPI_UBICACION_REGEX = /^(10|20|30|4[1-9]|50)[A-Z]{2}\d{2}-\d{2}$/;
 const KPI1_META_PCT = 95;
+const normDescKPI = s => String(s || '').toUpperCase().trim().replace(/\s+/g, ' ');
+
+// Clasificación aproximada de la ubicación en las 4 categorías de la Spec.
+// No reproduce el mapeo manual exacto de Lucas (hoja Detalle_KPI1_Ubicacion),
+// es una heurística sobre el texto: sin dato / válida / con dígitos pero
+// mal formada (variante) / sin dígitos (zona con nombre propio).
+function clasificarUbicacion(ubicRaw) {
+  const u = String(ubicRaw || '').trim();
+  if (u === '' || u === '0' || u === '1') return 'sin_ubicacion';
+  if (KPI_UBICACION_REGEX.test(u)) return 'valido';
+  if (/\d/.test(u)) return 'variante_codigo';
+  return 'zona_con_nombre';
+}
 
 function calcularKPIsUbicacion() {
   // Se excluyen los ítems "Sin SAP" del catálogo GPC: no son materiales
@@ -2104,16 +2141,40 @@ function calcularKPIsUbicacion() {
   // distorsionarían el % (no forman parte del universo de la Spec).
   const materiales = S.materiales.filter(m => !m.es_gpc_no_cargado);
 
-  const validos = materiales.filter(m => KPI_UBICACION_REGEX.test(String(m.ubicacion || '').trim()));
-  const pctValido = materiales.length ? (validos.length / materiales.length) * 100 : 0;
+  const categorias = { valido: [], sin_ubicacion: [], zona_con_nombre: [], variante_codigo: [] };
+  materiales.forEach(m => categorias[clasificarUbicacion(m.ubicacion)].push(m));
+  const pctValido = materiales.length ? (categorias.valido.length / materiales.length) * 100 : 0;
 
-  const afectados = materiales.filter(m =>
-    Number(m.cantidad) > 0 && !KPI_UBICACION_REGEX.test(String(m.ubicacion || '').trim())
+  const afectadosKPI2 = materiales.filter(m =>
+    Number(m.cantidad) > 0 && clasificarUbicacion(m.ubicacion) !== 'valido'
   ).sort((a, b) => Number(b.cantidad) - Number(a.cantidad));
 
+  // KPI 3/4: agrupar por descripción normalizada (mismo criterio que ID4),
+  // excluyendo materiales marcados "NO UTILIZAR" — de lo contrario todos
+  // los ítems dados de baja (que comparten ese mismo texto) formarían un
+  // falso grupo "duplicado" gigante.
+  const materialesActivos = materiales.filter(m => normDescKPI(m.material) !== 'NO UTILIZAR');
+  const gruposPorDesc = {};
+  materialesActivos.forEach(m => {
+    const k = normDescKPI(m.material);
+    if (!k) return;
+    (gruposPorDesc[k] = gruposPorDesc[k] || []).push(m);
+  });
+
+  const gruposDuplicados = Object.entries(gruposPorDesc)
+    .filter(([, lista]) => lista.length >= 2)
+    .map(([descripcion, materiales]) => ({ descripcion, materiales }))
+    .sort((a, b) => b.materiales.length - a.materiales.length);
+
+  const gruposStockMixto = gruposDuplicados.filter(g =>
+    g.materiales.some(m => Number(m.cantidad) > 0) && g.materiales.some(m => Number(m.cantidad) === 0)
+  );
+
   return {
-    kpi1: { pct: pctValido, validos: validos.length, total: materiales.length },
-    kpi2: { afectados }
+    kpi1: { pct: pctValido, categorias, total: materiales.length },
+    kpi2: { afectados: afectadosKPI2 },
+    kpi3: { grupos: gruposStockMixto },
+    kpi4: { grupos: gruposDuplicados }
   };
 }
 
@@ -2123,45 +2184,106 @@ function colorPorUmbral(valor, verdeDesde, amberDesde) {
   return 'kpi-red';
 }
 
+function colorPorCantidadInversa(cant, amberHasta) {
+  if (cant === 0) return 'kpi-green';
+  if (cant <= amberHasta) return 'kpi-amber';
+  return 'kpi-red';
+}
+
 function abrirKPIs() {
-  const { kpi1, kpi2 } = calcularKPIsUbicacion();
+  const { kpi1, kpi2, kpi3, kpi4 } = calcularKPIsUbicacion();
 
   const card1 = document.getElementById('kpi-card-1');
   card1.className = 'kpi-card ' + colorPorUmbral(kpi1.pct, KPI1_META_PCT, 80);
   document.getElementById('kpi1-valor').textContent = kpi1.pct.toFixed(1) + '%';
   document.getElementById('kpi1-bar').style.width = Math.min(100, kpi1.pct) + '%';
   document.getElementById('kpi1-detalle').textContent =
-    `${kpi1.validos.toLocaleString('es-AR')} de ${kpi1.total.toLocaleString('es-AR')} materiales con ubicación válida`;
+    `${kpi1.categorias.valido.length.toLocaleString('es-AR')} de ${kpi1.total.toLocaleString('es-AR')} materiales con ubicación válida`;
+  document.getElementById('kpi1-desglose').innerHTML = `
+    <div>Sin ubicación: <strong>${kpi1.categorias.sin_ubicacion.length.toLocaleString('es-AR')}</strong></div>
+    <div>Zona con nombre propio: <strong>${kpi1.categorias.zona_con_nombre.length.toLocaleString('es-AR')}</strong></div>
+    <div>Variante de código: <strong>${kpi1.categorias.variante_codigo.length.toLocaleString('es-AR')}</strong></div>
+  `;
 
   const card2 = document.getElementById('kpi-card-2');
   const cant2 = kpi2.afectados.length;
-  const color2 = cant2 === 0 ? 'kpi-green' : (cant2 <= 100 ? 'kpi-amber' : 'kpi-red');
-  card2.className = 'kpi-card ' + color2;
+  card2.className = 'kpi-card ' + colorPorCantidadInversa(cant2, 100);
   document.getElementById('kpi2-valor').textContent = cant2.toLocaleString('es-AR');
   document.getElementById('kpi2-detalle').textContent =
     cant2 === 0
       ? 'Sin materiales en riesgo'
       : `Con stock en sistema pero sin ubicación válida · Valor en ARS no disponible (falta valorización en la base)`;
 
-  S.kpi2Lista = kpi2.afectados;
+  const card3 = document.getElementById('kpi-card-3');
+  const cant3Grupos  = kpi3.grupos.length;
+  const cant3Codigos = kpi3.grupos.reduce((s, g) => s + g.materiales.length, 0);
+  card3.className = 'kpi-card ' + colorPorCantidadInversa(cant3Grupos, 5);
+  document.getElementById('kpi3-valor').textContent = cant3Grupos.toLocaleString('es-AR');
+  document.getElementById('kpi3-detalle').textContent =
+    cant3Grupos === 0
+      ? 'Sin grupos con stock mixto'
+      : `${cant3Codigos.toLocaleString('es-AR')} códigos involucrados (clasificación aproximada)`;
+
+  const card4 = document.getElementById('kpi-card-4');
+  const cant4Grupos  = kpi4.grupos.length;
+  const cant4Codigos = kpi4.grupos.reduce((s, g) => s + g.materiales.length, 0);
+  card4.className = 'kpi-card ' + colorPorCantidadInversa(cant4Grupos, 20);
+  document.getElementById('kpi4-valor').textContent = cant4Grupos.toLocaleString('es-AR');
+  document.getElementById('kpi4-detalle').textContent =
+    cant4Grupos === 0
+      ? 'Sin descripciones duplicadas'
+      : `${cant4Codigos.toLocaleString('es-AR')} códigos en total (clasificación aproximada)`;
+
+  S.kpi2Lista  = kpi2.afectados;
+  S.kpi3Grupos = kpi3.grupos;
+  S.kpi4Grupos = kpi4.grupos;
   abrirOverlay('ov-kpis');
 }
 
-function exportarKPI2CSV() {
-  const lista = S.kpi2Lista || [];
-  if (!lista.length) { toast('No hay materiales para exportar', 'err'); return; }
-  const cols   = ['codigo_sap', 'material', 'ubicacion', 'area', 'cantidad'];
+function exportarCSVGenerico(rows, cols, filenamePrefix) {
+  if (!rows.length) { toast('No hay datos para exportar', 'err'); return; }
   const header = cols.join(';');
-  const rows   = lista.map(m => cols.map(c => `"${String(m[c] ?? '').replace(/"/g, '""')}"`).join(';'));
-  const csv    = '﻿' + [header, ...rows].join('\r\n');
-  const blob   = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url    = URL.createObjectURL(blob);
-  const a      = Object.assign(document.createElement('a'), {
-    href: url, download: `KPI2_sin_ubicacion_${fechaHoy()}.csv`
+  const csvRows = rows.map(r => cols.map(c => `"${String(r[c] ?? '').replace(/"/g, '""')}"`).join(';'));
+  const csv  = '﻿' + [header, ...csvRows].join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = Object.assign(document.createElement('a'), {
+    href: url, download: `${filenamePrefix}_${fechaHoy()}.csv`
   });
   a.click();
   URL.revokeObjectURL(url);
-  toast(`${lista.length} materiales exportados`, 'ok');
+  toast(`${rows.length} filas exportadas`, 'ok');
+}
+
+function exportarKPI2CSV() {
+  const cols = ['codigo_sap', 'material', 'ubicacion', 'area', 'cantidad'];
+  exportarCSVGenerico(S.kpi2Lista || [], cols, 'KPI2_sin_ubicacion');
+}
+
+function gruposKPIaFilas(grupos) {
+  const filas = [];
+  (grupos || []).forEach((g, idx) => {
+    g.materiales.forEach(m => filas.push({
+      grupo: idx + 1,
+      descripcion_normalizada: g.descripcion,
+      codigo_sap: m.codigo_sap,
+      material: m.material,
+      cantidad: m.cantidad,
+      ubicacion: m.ubicacion,
+      area: m.area
+    }));
+  });
+  return filas;
+}
+
+function exportarKPI3CSV() {
+  const cols = ['grupo', 'descripcion_normalizada', 'codigo_sap', 'material', 'cantidad', 'ubicacion', 'area'];
+  exportarCSVGenerico(gruposKPIaFilas(S.kpi3Grupos), cols, 'KPI3_stock_mixto');
+}
+
+function exportarKPI4CSV() {
+  const cols = ['grupo', 'descripcion_normalizada', 'codigo_sap', 'material', 'cantidad', 'ubicacion', 'area'];
+  exportarCSVGenerico(gruposKPIaFilas(S.kpi4Grupos), cols, 'KPI4_duplicados');
 }
 
 // ═══════════════════════════════════════════════════════════
