@@ -482,7 +482,7 @@
         <button class="btn-sec btn-mob-hide" onclick="exportarCSV()">↓ Exportar CSV</button>
         <button class="btn-sec btn-mob-hide" onclick="abrirActualizarMasivo()">↺ Actualizar masivo</button>
         <button class="btn-sec admin-only btn-mob-hide" onclick="abrirAuditoria()" style="display:none">Auditoría</button>
-        <button class="btn-sec admin-only btn-mob-hide" id="btn-conteo-fisico" onclick="abrirConteoFisico()" style="display:none" title="Genera una planilla imprimible con materiales al azar para el conteo físico mensual">📝 Conteo físico</button>
+        <button class="btn-sec admin-only btn-mob-hide" id="btn-conteo-fisico" onclick="abrirConteoFisico()" style="display:none" title="Genera una planilla imprimible con materiales al azar (fuente: hoja Stock SAP) para el conteo físico mensual">📝 Conteo físico</button>
         <button class="btn-sec admin-only btn-mob-hide" id="btn-kpis" onclick="abrirKPIs()" style="display:none" title="KPIs de calidad de ubicación (Plan de Mejora del Maestro de Materiales)">📊 KPIs</button>
       </div>
     </div>
@@ -937,6 +937,7 @@ const S = {
   kpi2Lista:  [],
   kpi3Grupos: [],
   kpi4Grupos: [],
+  stockSAP:   [],
   sortCol:    null,
   sortDir:    1,     // 1 = asc, -1 = desc
   gpcSaps:            new Set(),
@@ -2022,21 +2023,39 @@ async function abrirAuditoria() {
 // ═══════════════════════════════════════════════════════════
 // CONTEO FÍSICO MENSUAL — auditoría al azar del responsable de almacén
 // ═══════════════════════════════════════════════════════════
-function abrirConteoFisico() {
+async function abrirConteoFisico() {
   document.getElementById('inp-cant-conteo').value = 10;
   document.getElementById('chk-conteo-con-stock').checked = false;
   document.getElementById('conteo-doc').innerHTML   = '';
   document.getElementById('conteo-doc').style.display = 'none';
   document.getElementById('btn-imprimir-conteo').disabled = true;
-  abrirOverlay('ov-conteo-fisico');
+
+  // Se trae siempre fresco de la hoja "Stock SAP" (no de los materiales
+  // ya cargados en la app), porque es la fuente más actualizada.
+  mostrarLoading(true);
+  try {
+    const res = await apiGet('getStockSAP');
+    if (!res.ok) throw new Error(res.error);
+    S.stockSAP = res.data || [];
+    if (!S.stockSAP.length) {
+      toast('La hoja "Stock SAP" está vacía o no se pudo leer', 'err');
+      return;
+    }
+    abrirOverlay('ov-conteo-fisico');
+  } catch (err) {
+    toast('Error al cargar Stock SAP: ' + err.message, 'err');
+  } finally {
+    mostrarLoading(false);
+  }
 }
 
 function generarConteoFisico() {
   const inpCant   = document.getElementById('inp-cant-conteo');
   const soloStock = document.getElementById('chk-conteo-con-stock').checked;
+  const fuente    = S.stockSAP || [];
   const disponibles = soloStock
-    ? S.materiales.filter(m => Number(m.cantidad) > 0)
-    : S.materiales;
+    ? fuente.filter(m => Number(m.cantidad) > 0)
+    : fuente;
 
   if (soloStock && !disponibles.length) {
     toast('No hay materiales con cantidad en sistema mayor a 0', 'err');
@@ -2065,7 +2084,7 @@ function generarConteoFisico() {
       <td>${esc(m.codigo_sap)}</td>
       <td>${esc(m.material)}</td>
       <td>${esc(m.ubicacion)}</td>
-      <td>${esc(m.area)}</td>
+      <td>${esc([m.centro, m.almacen].filter(Boolean).join(' / '))}</td>
       <td style="text-align:right">${esc(m.cantidad)}</td>
       <td class="celda-vacia"></td>
       <td class="celda-vacia"></td>
@@ -2098,7 +2117,7 @@ function generarConteoFisico() {
       </colgroup>
       <thead>
         <tr>
-          <th>N°</th><th>Código SAP</th><th>Material</th><th>Ubicación</th><th>Área</th>
+          <th>N°</th><th>Código SAP</th><th>Material</th><th>Ubicación</th><th>Centro / Almacén</th>
           <th>Cant. Sistema</th><th>Cant. Física</th><th>Diferencia</th><th>Observaciones</th>
         </tr>
       </thead>
