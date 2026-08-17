@@ -832,10 +832,9 @@
     </div>
     <div class="modal-body">
       <p style="font-size:12px;color:var(--txt2);margin-bottom:16px">
-        Calculado en vivo sobre los materiales cargados en la app (excluye ítems "Sin SAP" del catálogo GPC).
-        El desglose del KPI 1 y los KPI 3/4 usan una clasificación aproximada por texto — no son un match exacto
-        con la planilla de detalle que arma Lucas a mano. KPI 2 no incluye valorización en ARS: falta cargar el
-        valor unitario de cada material en la base.
+        Calculado en vivo sobre la hoja "Stock SAP" (todo material con número SAP asignado, sin filtrar por
+        Centro/Almacén). El desglose del KPI 1 y los KPI 3/4 usan una clasificación aproximada por texto — no
+        son un match exacto con la planilla de detalle que arma Lucas a mano.
       </p>
       <div class="kpi-grid">
         <div class="kpi-card" id="kpi-card-1">
@@ -870,8 +869,8 @@
       </div>
       <p style="font-size:11px;color:var(--txt2);margin-top:18px">
         Formato de ubicación válido: prefijo de zona oficial (2 dígitos) + dos letras + dos dígitos, guion,
-        dos dígitos (ej. 10BB02-30). Solo se considera stock de libre utilización (campo Cantidad en almacén
-        de la app). KPI 3/4 agrupan por descripción normalizada y excluyen materiales marcados "NO UTILIZAR".
+        dos dígitos (ej. 10BB02-30). Solo se considera stock de libre utilización (campo "Libre utilización"
+        de SAP). KPI 3/4 agrupan por descripción normalizada y excluyen materiales marcados "NO UTILIZAR".
       </p>
     </div>
     <div class="modal-footer">
@@ -2023,15 +2022,10 @@ async function abrirAuditoria() {
 // ═══════════════════════════════════════════════════════════
 // CONTEO FÍSICO MENSUAL — auditoría al azar del responsable de almacén
 // ═══════════════════════════════════════════════════════════
-async function abrirConteoFisico() {
-  document.getElementById('inp-cant-conteo').value = 10;
-  document.getElementById('chk-conteo-con-stock').checked = false;
-  document.getElementById('conteo-doc').innerHTML   = '';
-  document.getElementById('conteo-doc').style.display = 'none';
-  document.getElementById('btn-imprimir-conteo').disabled = true;
-
-  // Se trae siempre fresco de la hoja "Stock SAP" (no de los materiales
-  // ya cargados en la app), porque es la fuente más actualizada.
+// Fuente compartida por Conteo Físico y KPIs — se trae siempre fresca de
+// la hoja "Stock SAP" (no de los materiales ya cargados en la app), porque
+// es la fuente más actualizada y cada fila ya viene con código SAP.
+async function cargarStockSAP() {
   mostrarLoading(true);
   try {
     const res = await apiGet('getStockSAP');
@@ -2039,14 +2033,26 @@ async function abrirConteoFisico() {
     S.stockSAP = res.data || [];
     if (!S.stockSAP.length) {
       toast('La hoja "Stock SAP" está vacía o no se pudo leer', 'err');
-      return;
+      return false;
     }
-    abrirOverlay('ov-conteo-fisico');
+    return true;
   } catch (err) {
     toast('Error al cargar Stock SAP: ' + err.message, 'err');
+    return false;
   } finally {
     mostrarLoading(false);
   }
+}
+
+async function abrirConteoFisico() {
+  document.getElementById('inp-cant-conteo').value = 10;
+  document.getElementById('chk-conteo-con-stock').checked = false;
+  document.getElementById('conteo-doc').innerHTML   = '';
+  document.getElementById('conteo-doc').style.display = 'none';
+  document.getElementById('btn-imprimir-conteo').disabled = true;
+
+  const ok = await cargarStockSAP();
+  if (ok) abrirOverlay('ov-conteo-fisico');
 }
 
 function generarConteoFisico() {
@@ -2155,10 +2161,11 @@ function clasificarUbicacion(ubicRaw) {
 }
 
 function calcularKPIsUbicacion() {
-  // Se excluyen los ítems "Sin SAP" del catálogo GPC: no son materiales
-  // realmente cargados en el almacén, siempre tienen ubicación vacía y
-  // distorsionarían el % (no forman parte del universo de la Spec).
-  const materiales = S.materiales.filter(m => !m.es_gpc_no_cargado);
+  // Fuente: hoja "Stock SAP". getStockSAP() ya descarta las filas sin
+  // código, así que el universo cumple de por sí el criterio de alcance
+  // confirmado por Pablo: "todo material con número SAP asignado" — no
+  // hace falta excluir nada del catálogo GPC ni filtrar por Centro/Almacén.
+  const materiales = S.stockSAP || [];
 
   const categorias = { valido: [], sin_ubicacion: [], zona_con_nombre: [], variante_codigo: [] };
   materiales.forEach(m => categorias[clasificarUbicacion(m.ubicacion)].push(m));
@@ -2167,11 +2174,13 @@ function calcularKPIsUbicacion() {
   const afectadosKPI2 = materiales.filter(m =>
     Number(m.cantidad) > 0 && clasificarUbicacion(m.ubicacion) !== 'valido'
   ).sort((a, b) => Number(b.cantidad) - Number(a.cantidad));
+  const valorRiesgoARS = afectadosKPI2.reduce((s, m) => s + (Number(m.valor) || 0), 0);
 
   // KPI 3/4: agrupar por descripción normalizada (mismo criterio que ID4),
   // excluyendo materiales marcados "NO UTILIZAR" — de lo contrario todos
   // los ítems dados de baja (que comparten ese mismo texto) formarían un
-  // falso grupo "duplicado" gigante.
+  // falso grupo "duplicado" gigante. (Al 11/08/2026 no debería quedar
+  // ninguno marcado así, pero se deja como resguardo.)
   const materialesActivos = materiales.filter(m => normDescKPI(m.material) !== 'NO UTILIZAR');
   const gruposPorDesc = {};
   materialesActivos.forEach(m => {
@@ -2191,7 +2200,7 @@ function calcularKPIsUbicacion() {
 
   return {
     kpi1: { pct: pctValido, categorias, total: materiales.length },
-    kpi2: { afectados: afectadosKPI2 },
+    kpi2: { afectados: afectadosKPI2, valorARS: valorRiesgoARS },
     kpi3: { grupos: gruposStockMixto },
     kpi4: { grupos: gruposDuplicados }
   };
@@ -2209,7 +2218,10 @@ function colorPorCantidadInversa(cant, amberHasta) {
   return 'kpi-red';
 }
 
-function abrirKPIs() {
+async function abrirKPIs() {
+  const ok = await cargarStockSAP();
+  if (!ok) return;
+
   const { kpi1, kpi2, kpi3, kpi4 } = calcularKPIsUbicacion();
 
   const card1 = document.getElementById('kpi-card-1');
@@ -2231,7 +2243,7 @@ function abrirKPIs() {
   document.getElementById('kpi2-detalle').textContent =
     cant2 === 0
       ? 'Sin materiales en riesgo'
-      : `Con stock en sistema pero sin ubicación válida · Valor en ARS no disponible (falta valorización en la base)`;
+      : `Con stock en sistema pero sin ubicación válida · $ ${Math.round(kpi2.valorARS).toLocaleString('es-AR')} en riesgo`;
 
   const card3 = document.getElementById('kpi-card-3');
   const cant3Grupos  = kpi3.grupos.length;
@@ -2275,7 +2287,7 @@ function exportarCSVGenerico(rows, cols, filenamePrefix) {
 }
 
 function exportarKPI2CSV() {
-  const cols = ['codigo_sap', 'material', 'ubicacion', 'area', 'cantidad'];
+  const cols = ['codigo_sap', 'material', 'ubicacion', 'centro', 'almacen', 'cantidad', 'valor'];
   exportarCSVGenerico(S.kpi2Lista || [], cols, 'KPI2_sin_ubicacion');
 }
 
@@ -2289,19 +2301,20 @@ function gruposKPIaFilas(grupos) {
       material: m.material,
       cantidad: m.cantidad,
       ubicacion: m.ubicacion,
-      area: m.area
+      centro: m.centro,
+      almacen: m.almacen
     }));
   });
   return filas;
 }
 
 function exportarKPI3CSV() {
-  const cols = ['grupo', 'descripcion_normalizada', 'codigo_sap', 'material', 'cantidad', 'ubicacion', 'area'];
+  const cols = ['grupo', 'descripcion_normalizada', 'codigo_sap', 'material', 'cantidad', 'ubicacion', 'centro', 'almacen'];
   exportarCSVGenerico(gruposKPIaFilas(S.kpi3Grupos), cols, 'KPI3_stock_mixto');
 }
 
 function exportarKPI4CSV() {
-  const cols = ['grupo', 'descripcion_normalizada', 'codigo_sap', 'material', 'cantidad', 'ubicacion', 'area'];
+  const cols = ['grupo', 'descripcion_normalizada', 'codigo_sap', 'material', 'cantidad', 'ubicacion', 'centro', 'almacen'];
   exportarCSVGenerico(gruposKPIaFilas(S.kpi4Grupos), cols, 'KPI4_duplicados');
 }
 
