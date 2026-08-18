@@ -170,19 +170,18 @@
     .conteo-datos td { padding: 6px 8px; border: 1px solid #ccc; }
     .conteo-tabla { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 13px; }
     .conteo-tabla th, .conteo-tabla td { border: 1px solid #999; padding: 6px 8px; text-align: left;
-      overflow-wrap: break-word; }
+      overflow-wrap: break-word; white-space: normal; }
     .conteo-tabla th { background: #eee; color: #111; }
     .conteo-tabla .celda-vacia { min-width: 0; }
     .conteo-tabla col.col-n     { width: 4%; }
-    .conteo-tabla col.col-sap   { width: 10%; }
+    .conteo-tabla col.col-sap   { width: 12%; }
     .conteo-tabla col.col-mat   { width: 22%; }
-    .conteo-tabla col.col-ubic  { width: 8%; }
-    .conteo-tabla col.col-area  { width: 11%; }
-    .conteo-tabla col.col-csis  { width: 8%; }
-    .conteo-tabla col.col-um    { width: 6%; }
-    .conteo-tabla col.col-cfis  { width: 8%; }
-    .conteo-tabla col.col-dif   { width: 7%; }
-    .conteo-tabla col.col-obs   { width: 16%; }
+    .conteo-tabla col.col-ubic  { width: 10%; }
+    .conteo-tabla col.col-csis  { width: 10%; }
+    .conteo-tabla col.col-um    { width: 8%; }
+    .conteo-tabla col.col-cfis  { width: 10%; }
+    .conteo-tabla col.col-dif   { width: 11%; }
+    .conteo-tabla col.col-obs   { width: 13%; }
     .conteo-obs-generales { margin-top: 12px; break-inside: avoid; }
     .conteo-obs-generales h3 { font-size: 12px; font-weight: 600; margin-bottom: 4px; }
     .conteo-obs-generales .renglon { border-bottom: 1px solid #999; height: 16px; }
@@ -210,11 +209,14 @@
     @media (max-width: 640px) { .kpi-grid { grid-template-columns: 1fr; } }
 
     @media print {
-      /* La tabla tiene 9 columnas (3 para completar a mano) — en vertical
-         no entra y recorta la última columna. Horizontal da más ancho. */
-      @page { size: landscape; margin: 10mm; }
+      @page { size: portrait; margin: 10mm; }
       body * { visibility: hidden; }
       #conteo-doc, #conteo-doc * { visibility: visible; }
+      /* Achicar un poco la tabla en impresión para que los encabezados
+         (Cant. Sistema, Unidad Medida, etc.) no queden apretados/cortados
+         dentro de columnas angostas en hoja vertical. */
+      .conteo-tabla { font-size: 10.5px; }
+      .conteo-tabla th, .conteo-tabla td { padding: 4px 5px; }
       /* El resto del body (app con su tabla, login, etc.) queda invisible pero
          sigue ocupando espacio en el flujo normal — hay que colapsarlo o el
          documento aparece empujado varias páginas en blanco hacia abajo. */
@@ -2094,7 +2096,6 @@ function generarConteoFisico() {
       <td>${esc(m.codigo_sap)}</td>
       <td>${esc(m.material)}</td>
       <td>${esc(m.ubicacion)}</td>
-      <td>${esc([m.centro, m.almacen].filter(Boolean).join(' / '))}</td>
       <td style="text-align:right">${esc(m.cantidad)}</td>
       <td>${esc(m.unidad_medida)}</td>
       <td class="celda-vacia"></td>
@@ -2123,12 +2124,12 @@ function generarConteoFisico() {
     <table class="conteo-tabla">
       <colgroup>
         <col class="col-n"><col class="col-sap"><col class="col-mat"><col class="col-ubic">
-        <col class="col-area"><col class="col-csis"><col class="col-um"><col class="col-cfis"><col class="col-dif">
+        <col class="col-csis"><col class="col-um"><col class="col-cfis"><col class="col-dif">
         <col class="col-obs">
       </colgroup>
       <thead>
         <tr>
-          <th>N°</th><th>Código SAP</th><th>Material</th><th>Ubicación</th><th>Centro / Almacén</th>
+          <th>N°</th><th>Código SAP</th><th>Material</th><th>Ubicación</th>
           <th>Cant. Sistema</th><th>Unidad Medida</th><th>Cant. Física</th><th>Diferencia</th><th>Observaciones</th>
         </tr>
       </thead>
