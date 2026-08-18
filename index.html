@@ -182,9 +182,9 @@
     .conteo-tabla col.col-cfis  { width: 10%; }
     .conteo-tabla col.col-dif   { width: 11%; }
     .conteo-tabla col.col-obs   { width: 13%; }
-    .conteo-obs-generales { margin-top: 12px; break-inside: avoid; }
-    .conteo-obs-generales h3 { font-size: 12px; font-weight: 600; margin-bottom: 4px; }
-    .conteo-obs-generales .renglon { border-bottom: 1px solid #999; height: 16px; }
+    .conteo-obs-generales { margin-top: 16px; break-inside: avoid; }
+    .conteo-obs-generales h3 { font-size: 12px; font-weight: 600; margin-bottom: 6px; }
+    .conteo-obs-generales .renglon { border-bottom: 1px solid #999; height: 22px; }
     .conteo-firmas { display: flex; justify-content: space-around; margin-top: 20px; break-inside: avoid; }
     .conteo-firmas .firma { text-align: center; width: 40%; }
     .conteo-firmas .linea { border-top: 1px solid #333; margin-bottom: 6px; }
@@ -231,7 +231,13 @@
         padding: 0 !important; margin: 0 !important; background: none !important;
         box-shadow: none !important; display: block !important;
       }
-      #conteo-doc { display: block !important; width: 100%; padding: 20px; }
+      /* Flex-column con min-height de una página: si el contenido entra en
+         una sola hoja, el margin-top:auto de .conteo-firmas empuja las
+         firmas al pie. Si el documento ocupa varias páginas, el contenido
+         ya supera el min-height y esto no hace nada (se degrada solo). */
+      #conteo-doc { display: flex !important; flex-direction: column;
+        width: 100%; min-height: 100vh; padding: 20px; box-sizing: border-box; }
+      .conteo-firmas { margin-top: auto !important; padding-top: 24px; }
       .no-print { display: none !important; }
     }
 
@@ -2137,6 +2143,9 @@ function generarConteoFisico() {
     </table>
     <div class="conteo-obs-generales">
       <h3>Observaciones generales</h3>
+      <div class="renglon"></div>
+      <div class="renglon"></div>
+      <div class="renglon"></div>
       <div class="renglon"></div>
       <div class="renglon"></div>
       <div class="renglon"></div>
