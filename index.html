@@ -159,7 +159,7 @@
       display: flex; gap: 10px; justify-content: flex-end;
     }
 
-    /* ── Conteo físico mensual ── */
+    /* ── Conteo físico ── */
     .conteo-controles { margin-bottom: 20px; }
     .conteo-controles label { margin-bottom: 8px; }
     #conteo-doc { color: #111; }
@@ -494,7 +494,7 @@
         <button class="btn-sec btn-mob-hide" onclick="exportarCSV()">↓ Exportar CSV</button>
         <button class="btn-sec btn-mob-hide" onclick="abrirActualizarMasivo()">↺ Actualizar masivo</button>
         <button class="btn-sec admin-only btn-mob-hide" onclick="abrirAuditoria()" style="display:none">Auditoría</button>
-        <button class="btn-sec admin-only btn-mob-hide" id="btn-conteo-fisico" onclick="abrirConteoFisico()" style="display:none" title="Genera una planilla imprimible con materiales al azar (fuente: hoja Stock SAP) para el conteo físico mensual">📝 Conteo físico</button>
+        <button class="btn-sec admin-only btn-mob-hide" id="btn-conteo-fisico" onclick="abrirConteoFisico()" style="display:none" title="Genera una planilla imprimible con materiales al azar (fuente: hoja Stock SAP) para el conteo físico">📝 Conteo físico</button>
         <button class="btn-sec admin-only btn-mob-hide" id="btn-kpis" onclick="abrirKPIs()" style="display:none" title="KPIs de calidad de ubicación (Plan de Mejora del Maestro de Materiales)">📊 KPIs</button>
       </div>
     </div>
@@ -807,11 +807,11 @@
   </div>
 </div>
 
-<!-- ══ MODAL: CONTEO FÍSICO MENSUAL ══════════════════════════ -->
+<!-- ══ MODAL: CONTEO FÍSICO ══════════════════════════════════ -->
 <div class="overlay" id="ov-conteo-fisico">
   <div class="modal" style="max-width:900px">
     <div class="modal-header no-print">
-      <h2>Conteo físico mensual</h2>
+      <h2>Conteo físico</h2>
       <button class="close" onclick="cerrarOverlay('ov-conteo-fisico')">✕</button>
     </div>
     <div class="modal-body">
@@ -2032,7 +2032,7 @@ async function abrirAuditoria() {
 }
 
 // ═══════════════════════════════════════════════════════════
-// CONTEO FÍSICO MENSUAL — auditoría al azar del responsable de almacén
+// CONTEO FÍSICO — auditoría al azar del responsable de almacén, bajo demanda
 // ═══════════════════════════════════════════════════════════
 // Fuente compartida por Conteo Físico y KPIs — se trae siempre fresca de
 // la hoja "Stock SAP" (no de los materiales ya cargados en la app), porque
@@ -2113,7 +2113,7 @@ function generarConteoFisico() {
     <div class="conteo-header">
       <img src="CTCT.jpg" alt="CTCT" class="conteo-logo">
       <div>
-        <h1>Auditoría de Almacén — Conteo Físico Mensual</h1>
+        <h1>Auditoría de Almacén — Conteo Físico</h1>
         <p>CTCT — Grupo Albanesi</p>
       </div>
     </div>
