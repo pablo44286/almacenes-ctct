@@ -182,6 +182,9 @@
     .conteo-tabla col.col-cfis  { width: 9%; }
     .conteo-tabla col.col-dif   { width: 8%; }
     .conteo-tabla col.col-obs   { width: 13%; }
+    .conteo-obs-generales { margin-top: 24px; break-inside: avoid; }
+    .conteo-obs-generales h3 { font-size: 13px; font-weight: 600; margin-bottom: 8px; }
+    .conteo-obs-generales .renglon { border-bottom: 1px solid #999; height: 24px; }
     .conteo-firmas { display: flex; justify-content: space-around; margin-top: 48px; }
     .conteo-firmas .firma { text-align: center; width: 40%; }
     .conteo-firmas .linea { border-top: 1px solid #333; margin-bottom: 6px; }
@@ -2129,6 +2132,12 @@ function generarConteoFisico() {
       </thead>
       <tbody>${filas}</tbody>
     </table>
+    <div class="conteo-obs-generales">
+      <h3>Observaciones generales</h3>
+      <div class="renglon"></div>
+      <div class="renglon"></div>
+      <div class="renglon"></div>
+    </div>
     <div class="conteo-firmas">
       <div class="firma"><div class="linea"></div><span>Firma Auditor</span></div>
       <div class="firma"><div class="linea"></div><span>Firma Responsable de Almacén</span></div>
