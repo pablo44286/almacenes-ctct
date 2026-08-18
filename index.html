@@ -174,14 +174,15 @@
     .conteo-tabla th { background: #eee; color: #111; }
     .conteo-tabla .celda-vacia { min-width: 0; }
     .conteo-tabla col.col-n     { width: 4%; }
-    .conteo-tabla col.col-sap   { width: 11%; }
-    .conteo-tabla col.col-mat   { width: 25%; }
-    .conteo-tabla col.col-ubic  { width: 9%; }
-    .conteo-tabla col.col-area  { width: 12%; }
-    .conteo-tabla col.col-csis  { width: 9%; }
-    .conteo-tabla col.col-cfis  { width: 9%; }
-    .conteo-tabla col.col-dif   { width: 8%; }
-    .conteo-tabla col.col-obs   { width: 13%; }
+    .conteo-tabla col.col-sap   { width: 10%; }
+    .conteo-tabla col.col-mat   { width: 22%; }
+    .conteo-tabla col.col-ubic  { width: 8%; }
+    .conteo-tabla col.col-area  { width: 11%; }
+    .conteo-tabla col.col-csis  { width: 8%; }
+    .conteo-tabla col.col-um    { width: 6%; }
+    .conteo-tabla col.col-cfis  { width: 8%; }
+    .conteo-tabla col.col-dif   { width: 7%; }
+    .conteo-tabla col.col-obs   { width: 16%; }
     .conteo-obs-generales { margin-top: 12px; break-inside: avoid; }
     .conteo-obs-generales h3 { font-size: 12px; font-weight: 600; margin-bottom: 4px; }
     .conteo-obs-generales .renglon { border-bottom: 1px solid #999; height: 16px; }
@@ -2095,6 +2096,7 @@ function generarConteoFisico() {
       <td>${esc(m.ubicacion)}</td>
       <td>${esc([m.centro, m.almacen].filter(Boolean).join(' / '))}</td>
       <td style="text-align:right">${esc(m.cantidad)}</td>
+      <td>${esc(m.unidad_medida)}</td>
       <td class="celda-vacia"></td>
       <td class="celda-vacia"></td>
       <td class="celda-vacia"></td>
@@ -2121,13 +2123,13 @@ function generarConteoFisico() {
     <table class="conteo-tabla">
       <colgroup>
         <col class="col-n"><col class="col-sap"><col class="col-mat"><col class="col-ubic">
-        <col class="col-area"><col class="col-csis"><col class="col-cfis"><col class="col-dif">
+        <col class="col-area"><col class="col-csis"><col class="col-um"><col class="col-cfis"><col class="col-dif">
         <col class="col-obs">
       </colgroup>
       <thead>
         <tr>
           <th>N°</th><th>Código SAP</th><th>Material</th><th>Ubicación</th><th>Centro / Almacén</th>
-          <th>Cant. Sistema</th><th>Cant. Física</th><th>Diferencia</th><th>Observaciones</th>
+          <th>Cant. Sistema</th><th>Unidad Medida</th><th>Cant. Física</th><th>Diferencia</th><th>Observaciones</th>
         </tr>
       </thead>
       <tbody>${filas}</tbody>
@@ -2296,7 +2298,7 @@ function exportarCSVGenerico(rows, cols, filenamePrefix) {
 }
 
 function exportarKPI2CSV() {
-  const cols = ['codigo_sap', 'material', 'ubicacion', 'centro', 'almacen', 'cantidad', 'valor'];
+  const cols = ['codigo_sap', 'material', 'pieza_fabricante', 'ubicacion', 'centro', 'almacen', 'cantidad', 'valor'];
   exportarCSVGenerico(S.kpi2Lista || [], cols, 'KPI2_sin_ubicacion');
 }
 
@@ -2308,6 +2310,7 @@ function gruposKPIaFilas(grupos) {
       descripcion_normalizada: g.descripcion,
       codigo_sap: m.codigo_sap,
       material: m.material,
+      pieza_fabricante: m.pieza_fabricante,
       cantidad: m.cantidad,
       ubicacion: m.ubicacion,
       centro: m.centro,
@@ -2318,12 +2321,12 @@ function gruposKPIaFilas(grupos) {
 }
 
 function exportarKPI3CSV() {
-  const cols = ['grupo', 'descripcion_normalizada', 'codigo_sap', 'material', 'cantidad', 'ubicacion', 'centro', 'almacen'];
+  const cols = ['grupo', 'descripcion_normalizada', 'codigo_sap', 'material', 'pieza_fabricante', 'cantidad', 'ubicacion', 'centro', 'almacen'];
   exportarCSVGenerico(gruposKPIaFilas(S.kpi3Grupos), cols, 'KPI3_stock_mixto');
 }
 
 function exportarKPI4CSV() {
-  const cols = ['grupo', 'descripcion_normalizada', 'codigo_sap', 'material', 'cantidad', 'ubicacion', 'centro', 'almacen'];
+  const cols = ['grupo', 'descripcion_normalizada', 'codigo_sap', 'material', 'pieza_fabricante', 'cantidad', 'ubicacion', 'centro', 'almacen'];
   exportarCSVGenerico(gruposKPIaFilas(S.kpi4Grupos), cols, 'KPI4_duplicados');
 }
 
