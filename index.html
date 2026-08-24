@@ -2165,7 +2165,9 @@ function parseListadoValvulasHRSG(rows) {
       sistema:    String(r[idx['Sistema']] || ''),
       categoria:  String(r[idx['Categoria']] || ''),
       actuador:   String(r[idx['Tipo_Actuador']] || ''),
-      comentario: String(r[idx['Comentario']] || '')
+      comentario: String(r[idx['Comentario']] || ''),
+      plano_pid:     String(r[idx['Plano_PID']] || ''),
+      plano_valvula: String(r[idx['Plano_Valvula']] || '')
     };
   }
   return porTag;
@@ -2206,6 +2208,40 @@ function parseValvulasSinCotizar(rows, kksCotizadas) {
     });
   }
   return resultado;
+}
+
+// "Mapeo Planos VPI": log de transmittals pegado tal cual (encabezado en fila 1, datos
+// desde fila 2). Cruza "Documento VPI" (el codigo que trae Plano_PID/Plano_Valvula) con
+// el nombre real del archivo escaneado en Drive: "{Documento Nº}-{Rev con 2 digitos}.pdf",
+// tomando siempre la revision mas alta de cada documento.
+function parseMapeoPlanosVPI(rows) {
+  if (!rows || rows.length < 2) return {};
+  const headers = rows[0].map(function(h) { return String(h || '').trim(); });
+  const idx = {};
+  headers.forEach(function(h, i) { idx[h] = i; });
+  const idxDocNo = idx['Documento Nº'];
+  const idxVpi   = idx['Documento VPI'];
+  const idxRev   = idx['Rev.'];
+  if (idxDocNo === undefined || idxVpi === undefined || idxRev === undefined) return {};
+
+  const mejorPorVpi = {};
+  for (let i = 1; i < rows.length; i++) {
+    const r = rows[i];
+    const vpi = String(r[idxVpi] || '').trim().toUpperCase();
+    const docNo = String(r[idxDocNo] || '').trim();
+    if (!vpi || !docNo) continue;
+    const rev = Number(r[idxRev]) || 0;
+    if (!mejorPorVpi[vpi] || rev > mejorPorVpi[vpi].rev) {
+      mejorPorVpi[vpi] = { rev: rev, docNo: docNo };
+    }
+  }
+  const archivoPorVpi = {};
+  Object.keys(mejorPorVpi).forEach(function(vpi) {
+    const m = mejorPorVpi[vpi];
+    const revStr = (m.rev < 10 ? '0' : '') + m.rev;
+    archivoPorVpi[vpi] = m.docNo + '-' + revStr + '.pdf';
+  });
+  return archivoPorVpi;
 }
 
 function buscarDatosKKS(kks, listadoPorTag) {
@@ -2254,15 +2290,17 @@ function cruzarValvulaConAlmacen(orderNo, materiales, stockSap) {
 async function abrirValvulasHRSG() {
   mostrarLoading(true);
   try {
-    const [resHoja, resStock, resListado] = await Promise.all([
+    const [resHoja, resStock, resListado, resMapeo] = await Promise.all([
       apiGet('getHojaCruda', { nombreHoja: 'Repuestos valvulas HRSG' }),
       apiGet('getStockSAP', {}),
-      apiGet('getHojaCruda', { nombreHoja: 'Listado valvulas HRSG' })
+      apiGet('getHojaCruda', { nombreHoja: 'Listado valvulas HRSG' }),
+      apiGet('getHojaCruda', { nombreHoja: 'Mapeo Planos VPI' })
     ]);
     if (!resHoja.ok) throw new Error(resHoja.error);
     const grupos = parseValvulasHRSG(resHoja.data);
     const stockSap = resStock.ok ? (resStock.data || []) : [];
     S.listadoValvulasHRSG = resListado.ok ? parseListadoValvulasHRSG(resListado.data) : {};
+    S.mapeoPlanosVPI = resMapeo.ok ? parseMapeoPlanosVPI(resMapeo.data) : {};
 
     const cotizadas = grupos.map(function(g) {
       return Object.assign({}, g, { cruce: cruzarValvulaConAlmacen(g.order_no, S.materiales, stockSap) });
@@ -2302,6 +2340,53 @@ function filtrarValvulasHRSG() {
   renderValvulasHRSG(items);
 }
 
+function resolverArchivoPlano(d) {
+  const mapa = S.mapeoPlanosVPI || {};
+  if (!d) return null;
+  if (d.plano_valvula && mapa[d.plano_valvula.toUpperCase()]) return mapa[d.plano_valvula.toUpperCase()];
+  if (d.plano_pid && mapa[d.plano_pid.toUpperCase()]) return mapa[d.plano_pid.toUpperCase()];
+  return null;
+}
+
+async function verPlanoValvula(btn, nombreArchivo) {
+  const fila = btn.closest('tr');
+  const tabla = fila.closest('table');
+  const siguiente = fila.nextElementSibling;
+
+  if (siguiente && siguiente.classList.contains('valv-plano-row')) {
+    siguiente.remove();
+    btn.textContent = 'Ver plano';
+    return;
+  }
+  const abierto = tabla.querySelector('.valv-plano-row');
+  if (abierto) {
+    const botonAbierto = abierto.previousElementSibling && abierto.previousElementSibling.querySelector('button');
+    if (botonAbierto) botonAbierto.textContent = 'Ver plano';
+    abierto.remove();
+  }
+
+  btn.textContent = 'Cargando…';
+  const nuevaFila = document.createElement('tr');
+  nuevaFila.className = 'valv-plano-row';
+  const celdas = fila.children.length;
+  nuevaFila.innerHTML = '<td colspan="' + celdas + '" style="padding:10px"><span style="font-size:11px;color:var(--txt2)">Cargando plano…</span></td>';
+  fila.after(nuevaFila);
+
+  try {
+    const res = await apiGet('getPlanoValvula', { nombreArchivo: nombreArchivo });
+    if (res.ok && res.data && res.data.url) {
+      nuevaFila.querySelector('td').innerHTML = '<iframe src="' + res.data.url + '" style="width:100%;height:420px;border:1px solid var(--border);border-radius:6px" title="Plano ' + esc(nombreArchivo) + '"></iframe>';
+      btn.textContent = 'Ocultar plano';
+    } else {
+      nuevaFila.querySelector('td').innerHTML = '<span style="font-size:11px;color:var(--err)">No se encontró el archivo en Drive todavía</span>';
+      btn.textContent = 'Ver plano';
+    }
+  } catch(e) {
+    nuevaFila.querySelector('td').innerHTML = '<span style="font-size:11px;color:var(--err)">Error: ' + esc(e.message) + '</span>';
+    btn.textContent = 'Ver plano';
+  }
+}
+
 function renderValvulaKKSTabla(kksList) {
   if (!kksList.length) return '';
   const listado = S.listadoValvulasHRSG || {};
@@ -2313,20 +2398,25 @@ function renderValvulaKKSTabla(kksList) {
 
   const filas = conDatos.map(function(x) {
     const d = x.d;
-    if (!d) return '<tr><td><code>' + esc(x.kks) + '</code></td><td colspan="3" style="color:var(--txt2)">Sin datos en el listado técnico</td></tr>';
+    if (!d) return '<tr><td><code>' + esc(x.kks) + '</code></td><td colspan="4" style="color:var(--txt2)">Sin datos en el listado técnico</td></tr>';
     const operacion = d.categoria === 'Operada'
       ? '<span class="valv-operada">Operada' + (d.actuador ? ' — ' + esc(d.actuador) : '') + '</span>'
       : esc(d.categoria || '');
+    const archivoPlano = resolverArchivoPlano(d);
+    const planoCell = archivoPlano
+      ? '<button class="btn-sec btn-sm" onclick="verPlanoValvula(this,\'' + esc(archivoPlano).replace(/'/g, "\\'") + '\')">Ver plano</button>'
+      : '<span style="color:var(--txt2)">—</span>';
     return '<tr>'
       + '<td><code>' + esc(x.kks) + '</code></td>'
       + '<td>' + esc(d.servicio) + (d.comentario ? '<div style="font-size:11px;color:var(--txt2)">' + esc(d.comentario) + '</div>' : '') + '</td>'
       + '<td>' + esc(d.tag_linea) + (d.sistema ? ' <span class="valv-sistema">' + esc(d.sistema) + '</span>' : '') + '</td>'
       + '<td>' + operacion + '</td>'
+      + '<td>' + planoCell + '</td>'
       + '</tr>';
   }).join('');
 
   return '<div class="valv-kks-wrap"><div class="valv-kits-label">Válvulas en planta (' + kksList.length + '):</div>'
-    + '<table class="valv-rep-table"><thead><tr><th>KKS</th><th>Servicio</th><th>Línea</th><th>Operación</th></tr></thead>'
+    + '<table class="valv-rep-table"><thead><tr><th>KKS</th><th>Servicio</th><th>Línea</th><th>Operación</th><th>Plano</th></tr></thead>'
     + '<tbody>' + filas + '</tbody></table></div>';
 }
 
