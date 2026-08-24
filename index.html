@@ -314,6 +314,8 @@
     .valv-sin-cotizar { font-size:11px; font-weight:700; padding:1px 8px; border-radius:99px;
       background:#fee2e2; color:#991b1b; white-space:nowrap; }
     .valv-nota { font-size:12px; color:var(--txt2); font-style:italic; margin-top:10px; }
+    .valv-kks-link { color:var(--pri); font-weight:600; text-decoration:underline; text-decoration-style:dotted; }
+    .valv-kks-link:hover { text-decoration-style:solid; }
     .valv-kits { margin-top:10px; }
     .valv-kits-label { font-size:11px; font-weight:600; color:var(--txt2); margin-bottom:4px; }
     .valv-kit { display:inline-flex; align-items:center; gap:6px; font-size:12px; padding:4px 10px;
@@ -1313,7 +1315,7 @@ function renderTabla() {
       <td>${esc(m.ubicacion || '—')}</td>
       <td>${esc(m.ubicacion_tecnica || '—')}</td>
       <td><span class="cant ${cantClass}">${cant}</span></td>
-      <td class="td-mat"><span title="${esc(m.observaciones || '')}">${esc(m.observaciones || '—')}</span></td>
+      <td class="td-mat"><span title="${esc(m.observaciones || '')}">${marcarKKSObservaciones(m.observaciones)}</span></td>
       <td ${imgClass}>${tieneImg}</td>
       <td>
         <div class="action-btns">
@@ -1542,8 +1544,9 @@ function abrirDetalle(codigoSAP) {
 
   const rows = campos.map(function(par) {
     var k = par[0], v = par[1];
+    var valHtml = (k === 'Observaciones') ? marcarKKSObservaciones(v) : esc(v != null ? v : '');
     return '<div class="detail-key">' + esc(k) + '</div>'
-         + '<div class="detail-val">' + esc(v != null ? v : '') + '</div>';
+         + '<div class="detail-val">' + valHtml + '</div>';
   }).join('');
 
   document.getElementById('det-body').innerHTML =
@@ -2215,6 +2218,23 @@ function buscarDatosKKS(kks, listadoPorTag) {
   return listadoPorTag[sinMinusculasIniciales] || null;
 }
 
+// Materiales cuyo campo Observaciones menciona el KKS de una válvula — cubre sobre todo
+// repuestos de válvulas de seguridad/control (Pentair, Flowserve, etc.) que se cargaron
+// con codigo_sap propio, no como kit S17+... .
+function buscarRepuestosPorKKS(kksList, materialesConObs) {
+  if (!kksList.length || !materialesConObs.length) return [];
+  const kksUpper = kksList.map(function(k) { return String(k).toUpperCase(); });
+  const encontrados = [];
+  materialesConObs.forEach(function(m) {
+    const obs = String(m.observaciones || '').toUpperCase();
+    const match = kksUpper.find(function(k) { return obs.indexOf(k) !== -1; });
+    if (match) {
+      encontrados.push({ codigo_sap: m.codigo_sap, material: m.material, cantidad: m.cantidad, ubicacion: m.ubicacion });
+    }
+  });
+  return encontrados;
+}
+
 function cruzarValvulaConAlmacen(orderNo, materiales, stockSap) {
   const prefix = orderNo.toUpperCase();
   function matchea(texto) {
@@ -2255,6 +2275,9 @@ async function abrirValvulasHRSG() {
     const sinCotizar = resListado.ok ? parseValvulasSinCotizar(resListado.data, kksCotizadas) : [];
 
     S.valvulasHRSG = cotizadas.concat(sinCotizar);
+    const materialesConObs = S.materiales.filter(function(m) { return m.observaciones; });
+    S.valvulasHRSG.forEach(function(g) { g.cruce.por_kks = buscarRepuestosPorKKS(g.kks, materialesConObs); });
+
     document.getElementById('valv-filtro').value = '';
     renderValvulasHRSG(S.valvulasHRSG);
     abrirOverlay('ov-valvulas-hrsg');
@@ -2263,6 +2286,12 @@ async function abrirValvulasHRSG() {
   } finally {
     mostrarLoading(false);
   }
+}
+
+async function abrirValvulasHRSGDesdeKKS(kks) {
+  await abrirValvulasHRSG();
+  document.getElementById('valv-filtro').value = kks;
+  filtrarValvulasHRSG();
 }
 
 function filtrarValvulasHRSG() {
@@ -2322,10 +2351,21 @@ function renderValvulaHRSGCard(g) {
       + '</tbody></table></details>'
     : '';
 
+  const porKKS = g.cruce.por_kks || [];
+  const porKKSHtml = porKKS.map(function(k) {
+    const cls = (Number(k.cantidad) > 0) ? 'con-stock' : 'sin-stock';
+    return '<span class="valv-kit ' + cls + '"><code>' + esc(k.codigo_sap) + '</code> ' + esc(k.material)
+      + ' — ' + esc(String(k.cantidad)) + ' en ' + esc(k.ubicacion || 'almacén') + '</span>';
+  }).join('');
+  const porKKSSection = porKKS.length
+    ? '<div class="valv-kits"><div class="valv-kits-label">Repuestos en almacén (por KKS en Observaciones):</div>' + porKKSHtml + '</div>'
+    : '';
+
   const kitsSection = g.cotizada
     ? '<div class="valv-kits"><div class="valv-kits-label">Kits en almacén:</div>'
       + (kitsHtml || '<span class="valv-kit sin-stock">Sin código SAP encontrado</span>') + '</div>'
-    : '<p class="valv-nota">Sin cotización — no tiene repuestos ofertados ni referencia para buscar kits en almacén.</p>';
+      + porKKSSection
+    : (porKKSSection || '<p class="valv-nota">Sin cotización — no tiene repuestos ofertados ni referencia para buscar kits en almacén.</p>');
 
   return '<div class="gpc-card">'
     + renderValvulaKKSTabla(g.kks)
@@ -2792,6 +2832,17 @@ function findMat(key) {
 function esc(str) {
   return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;')
     .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Detecta KKS de válvulas (ej. "01LAA30AA191") dentro de un texto libre y los
+// convierte en links que abren el catálogo de Válvulas HRSG filtrado a ese KKS.
+const KKS_REGEX = /\b0[12][A-Z]{2,4}\d{2}[A-Z]{2}\d{3,4}\b/gi;
+function marcarKKSObservaciones(obs) {
+  const escaped = esc(obs || '');
+  if (!escaped) return '—';
+  return escaped.replace(KKS_REGEX, function(m) {
+    return '<a href="#" class="valv-kks-link" onclick="event.stopPropagation();event.preventDefault();abrirValvulasHRSGDesdeKKS(\'' + m.toUpperCase() + '\')">' + m + '</a>';
+  });
 }
 
 function fechaHoy() {
