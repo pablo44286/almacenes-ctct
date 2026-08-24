@@ -2165,7 +2165,12 @@ function parseListadoValvulasHRSG(rows) {
 
 function buscarDatosKKS(kks, listadoPorTag) {
   const tag = String(kks || '').trim().toUpperCase().replace(/^0[12]/, '');
-  return listadoPorTag[tag] || null;
+  if (listadoPorTag[tag]) return listadoPorTag[tag];
+  // Typo conocido en la hoja fuente: alguna letra minúscula de más pegada al tag
+  // (ej. "01lLAB10AA433" en vez de "01LAB10AA433"). Los tags reales son siempre mayúsculas.
+  const original = String(kks || '').trim().replace(/^0[12]/, '');
+  const sinMinusculasIniciales = original.replace(/^[a-z]+/, '').toUpperCase();
+  return listadoPorTag[sinMinusculasIniciales] || null;
 }
 
 function cruzarValvulaConAlmacen(orderNo, materiales, stockSap) {
