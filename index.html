@@ -307,6 +307,10 @@
       background:var(--pri); color:#fff; white-space:nowrap; }
     .valv-kks-count { font-size:11px; color:var(--txt2); }
     .valv-kks-list { font-size:11px; color:var(--txt2); margin-top:8px; word-break:break-word; }
+    .valv-kks-wrap { margin-top:10px; }
+    .valv-sistema { font-size:10px; font-weight:700; padding:1px 7px; border-radius:99px;
+      background:var(--pri); color:#fff; opacity:.75; white-space:nowrap; }
+    .valv-operada { color:var(--warn); font-weight:600; }
     .valv-kits { margin-top:10px; }
     .valv-kits-label { font-size:11px; font-weight:600; color:var(--txt2); margin-bottom:4px; }
     .valv-kit { display:inline-flex; align-items:center; gap:6px; font-size:12px; padding:4px 10px;
@@ -2135,6 +2139,35 @@ function parseValvulasHRSG(rows) {
   return orden.map(function(k) { return grupos[k]; });
 }
 
+// Listado_Valvulas_HRSG: datasheet de ingeniería por tag de válvula (KKS sin el prefijo
+// de tren "01"/"02"). Hoja CSV pegada tal cual: encabezado en la fila 1, datos desde la fila 2.
+function parseListadoValvulasHRSG(rows) {
+  if (!rows || rows.length < 2) return {};
+  const headers = rows[0].map(function(h) { return String(h || '').trim(); });
+  const idx = {};
+  headers.forEach(function(h, i) { idx[h] = i; });
+  const porTag = {};
+  for (let i = 1; i < rows.length; i++) {
+    const r = rows[i];
+    const tag = String(r[idx['Tag_Valvula']] || '').trim().toUpperCase();
+    if (!tag) continue;
+    porTag[tag] = {
+      tag_linea:  String(r[idx['Tag_Linea']] || ''),
+      servicio:   String(r[idx['Descripcion_Servicio']] || ''),
+      sistema:    String(r[idx['Sistema']] || ''),
+      categoria:  String(r[idx['Categoria']] || ''),
+      actuador:   String(r[idx['Tipo_Actuador']] || ''),
+      comentario: String(r[idx['Comentario']] || '')
+    };
+  }
+  return porTag;
+}
+
+function buscarDatosKKS(kks, listadoPorTag) {
+  const tag = String(kks || '').trim().toUpperCase().replace(/^0[12]/, '');
+  return listadoPorTag[tag] || null;
+}
+
 function cruzarValvulaConAlmacen(orderNo, materiales, stockSap) {
   const prefix = orderNo.toUpperCase();
   function matchea(texto) {
@@ -2154,13 +2187,15 @@ function cruzarValvulaConAlmacen(orderNo, materiales, stockSap) {
 async function abrirValvulasHRSG() {
   mostrarLoading(true);
   try {
-    const [resHoja, resStock] = await Promise.all([
+    const [resHoja, resStock, resListado] = await Promise.all([
       apiGet('getHojaCruda', { nombreHoja: 'Repuestos valvulas HRSG' }),
-      apiGet('getStockSAP', {})
+      apiGet('getStockSAP', {}),
+      apiGet('getHojaCruda', { nombreHoja: 'Listado valvulas HRSG' })
     ]);
     if (!resHoja.ok) throw new Error(resHoja.error);
     const grupos = parseValvulasHRSG(resHoja.data);
     const stockSap = resStock.ok ? (resStock.data || []) : [];
+    S.listadoValvulasHRSG = resListado.ok ? parseListadoValvulasHRSG(resListado.data) : {};
     S.valvulasHRSG = grupos.map(function(g) {
       return Object.assign({}, g, { cruce: cruzarValvulaConAlmacen(g.order_no, S.materiales, stockSap) });
     });
@@ -2180,6 +2215,34 @@ function filtrarValvulasHRSG() {
     return [g.order_no, g.make, g.fig_no, g.size, g.tipo_valvula].concat(g.kks).join(' ').toUpperCase().indexOf(q) !== -1;
   });
   renderValvulasHRSG(items);
+}
+
+function renderValvulaKKSTabla(kksList) {
+  if (!kksList.length) return '';
+  const listado = S.listadoValvulasHRSG || {};
+  const conDatos = kksList.map(function(k) { return { kks: k, d: buscarDatosKKS(k, listado) }; });
+
+  if (!Object.keys(listado).length || conDatos.every(function(x) { return !x.d; })) {
+    return '<div class="valv-kks-list"><strong>KKS:</strong> ' + kksList.map(function(k) { return esc(k); }).join(', ') + '</div>';
+  }
+
+  const filas = conDatos.map(function(x) {
+    const d = x.d;
+    if (!d) return '<tr><td><code>' + esc(x.kks) + '</code></td><td colspan="3" style="color:var(--txt2)">Sin datos en el listado técnico</td></tr>';
+    const operacion = d.categoria === 'Operada'
+      ? '<span class="valv-operada">Operada' + (d.actuador ? ' — ' + esc(d.actuador) : '') + '</span>'
+      : esc(d.categoria || '');
+    return '<tr>'
+      + '<td><code>' + esc(x.kks) + '</code></td>'
+      + '<td>' + esc(d.servicio) + (d.comentario ? '<div style="font-size:11px;color:var(--txt2)">' + esc(d.comentario) + '</div>' : '') + '</td>'
+      + '<td>' + esc(d.tag_linea) + (d.sistema ? ' <span class="valv-sistema">' + esc(d.sistema) + '</span>' : '') + '</td>'
+      + '<td>' + operacion + '</td>'
+      + '</tr>';
+  }).join('');
+
+  return '<div class="valv-kks-wrap"><div class="valv-kits-label">Válvulas en planta (' + kksList.length + '):</div>'
+    + '<table class="valv-rep-table"><thead><tr><th>KKS</th><th>Servicio</th><th>Línea</th><th>Operación</th></tr></thead>'
+    + '<tbody>' + filas + '</tbody></table></div>';
 }
 
 function renderValvulaHRSGCard(g) {
@@ -2221,7 +2284,7 @@ function renderValvulaHRSGCard(g) {
     + (g.end_to_end ? '<dt>End-to-end [mm]</dt><dd>' + esc(String(g.end_to_end)) + '</dd>' : '')
     + (g.operacion ? '<dt>Operación</dt><dd>' + esc(g.operacion) + (g.gearbox ? ' / ' + esc(g.gearbox) : '') + '</dd>' : '')
     + '</dl>'
-    + (g.kks.length ? '<div class="valv-kks-list"><strong>KKS:</strong> ' + g.kks.map(function(k) { return esc(k); }).join(', ') + '</div>' : '')
+    + renderValvulaKKSTabla(g.kks)
     + '<div class="valv-kits"><div class="valv-kits-label">Kits en almacén:</div>'
     + (kitsHtml || '<span class="valv-kit sin-stock">Sin código SAP encontrado</span>') + '</div>'
     + repuestosHtml
