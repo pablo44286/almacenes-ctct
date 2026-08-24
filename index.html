@@ -297,6 +297,29 @@
     .gpc-grid dt { color:var(--txt2); }
     .gpc-grid dd { font-weight:500; margin:0; }
 
+    /* ── Válvulas HRSG ── */
+    .valv-toolbar { display:flex; gap:10px; align-items:center; margin-bottom:14px; flex-wrap:wrap; }
+    .valv-toolbar input { flex:1; min-width:220px; padding:8px 12px; border:1px solid var(--border);
+      border-radius:8px; background:var(--bg); color:var(--txt); font-size:13px; }
+    .valv-count { font-size:12px; color:var(--txt2); white-space:nowrap; }
+    .valv-card-header { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:8px; }
+    .valv-make { font-size:11px; font-weight:700; padding:3px 10px; border-radius:99px;
+      background:var(--pri); color:#fff; white-space:nowrap; }
+    .valv-kks-count { font-size:11px; color:var(--txt2); }
+    .valv-kks-list { font-size:11px; color:var(--txt2); margin-top:8px; word-break:break-word; }
+    .valv-kits { margin-top:10px; }
+    .valv-kits-label { font-size:11px; font-weight:600; color:var(--txt2); margin-bottom:4px; }
+    .valv-kit { display:inline-flex; align-items:center; gap:6px; font-size:12px; padding:4px 10px;
+      border-radius:8px; margin:0 4px 4px 0; }
+    .valv-kit.con-stock { background:#dcfce7; color:#166534; }
+    .valv-kit.sin-stock { background:#fee2e2; color:#991b1b; }
+    .valv-repuestos { margin-top:10px; border-top:1px solid var(--border); padding-top:8px; }
+    .valv-repuestos summary { cursor:pointer; font-size:12px; font-weight:600; color:var(--pri); user-select:none; }
+    .valv-rep-table { width:100%; font-size:12px; border-collapse:collapse; margin-top:8px; }
+    .valv-rep-table td, .valv-rep-table th { padding:4px 6px; border-bottom:1px solid var(--border); text-align:left; }
+    .valv-rep-table th { color:var(--txt2); font-weight:600; font-size:11px; }
+    .valv-rep-table td.num, .valv-rep-table th.num { text-align:right; font-variant-numeric:tabular-nums; }
+
     /* ── Movimientos tabla ── */
     .mov-table td, .mov-table th { font-size: 12px; padding: 7px 10px; }
     .tipo-E { color: var(--ok); font-weight: 700; }
@@ -489,6 +512,7 @@
         <button class="btn-sec" id="btn-filtro-gpc" onclick="toggleFiltroGPC()">⚙ GPC</button>
         <button class="btn-sec" id="btn-filtro-gpc-nc" onclick="toggleFiltroGPCNoCargado()">📋 Sin SAP</button>
         <button class="btn-sec" id="btn-filtro-misc-ft" onclick="toggleFiltroMiscFT()" title="Miscelaneo por contrato (Omar)">🔧 Misc. FT</button>
+        <button class="btn-sec btn-mob-hide" onclick="abrirValvulasHRSG()" title="Repuestos de válvulas de calderas HRSG (HP Valves / HJ Valve / KVT / Dongkang), cruzado con Materiales y Stock SAP">🔩 Válvulas HRSG</button>
         <button class="btn-sec" id="btn-filtro-dup" onclick="toggleFiltroDuplicados()" title="Mostrar materiales con descripción duplicada">⚠ Duplicados</button>
         <button class="btn-sec btn-mob-hide" onclick="abrirAltaMasiva()">↑ Carga masiva</button>
         <button class="btn-sec btn-mob-hide" onclick="exportarCSV()">↓ Exportar CSV</button>
@@ -803,6 +827,30 @@
     </div>
     <div class="modal-footer">
       <button class="btn-sec" onclick="cerrarOverlay('ov-auditoria')">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: VÁLVULAS HRSG ══════════════════════════════════ -->
+<div class="overlay" id="ov-valvulas-hrsg">
+  <div class="modal" style="max-width:800px">
+    <div class="modal-header">
+      <h2>Repuestos válvulas HRSG</h2>
+      <button class="close" onclick="cerrarOverlay('ov-valvulas-hrsg')">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:12.5px;color:var(--txt2);margin:-4px 0 14px">
+        Catálogo de repuestos de las válvulas de las calderas HRSG (HP Valves, HJ Valve, KVT, Dongkang — cotización COP007802).
+        Cruzado en vivo contra Materiales y Stock SAP por referencia (Order no.).
+      </p>
+      <div class="valv-toolbar">
+        <input id="valv-filtro" type="text" placeholder="Buscar por marca, tamaño, tipo, referencia o KKS..." oninput="filtrarValvulasHRSG()">
+        <span class="valv-count" id="valv-count"></span>
+      </div>
+      <div id="valv-cards"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-sec" onclick="cerrarOverlay('ov-valvulas-hrsg')">Cerrar</button>
     </div>
   </div>
 </div>
@@ -2029,6 +2077,165 @@ async function abrirAuditoria() {
   } finally {
     mostrarLoading(false);
   }
+}
+
+// ═══════════════════════════════════════════════════════════
+// VÁLVULAS HRSG — catálogo de repuestos (HP Valves / HJ Valve / KVT / Dongkang),
+// cruzado en vivo contra Materiales y Stock SAP por prefijo de referencia (Order no., ej. "S17+0755+103").
+// La hoja cruda "Repuestos valvulas HRSG" tiene 2 filas de encabezado + 2 filas en blanco antes de los datos.
+// ═══════════════════════════════════════════════════════════
+function parseValvulasHRSG(rows) {
+  const grupos = {};
+  const orden = [];
+  for (let i = 4; i < rows.length; i++) {
+    const r = rows[i];
+    const tipo = String(r[1] || '').trim();
+    const orderNo = String(r[2] || '').trim();
+    if (!orderNo) continue;
+
+    if (!grupos[orderNo]) {
+      grupos[orderNo] = {
+        order_no: orderNo, make: '', fig_no: '', size: '', tipo_valvula: '', bonnet: '',
+        rating: '', body_material: '', conn_inlet: '', conn_outlet: '',
+        seatbore: '', end_to_end: '', operacion: '', gearbox: '', actuador: '',
+        kks: [], repuestos: []
+      };
+      orden.push(orderNo);
+    }
+    const g = grupos[orderNo];
+
+    if (tipo === 'Valve') {
+      if (!g.make) {
+        g.make          = String(r[8]  || '');
+        g.fig_no        = String(r[9]  || '');
+        g.size          = String(r[5]  || '');
+        g.tipo_valvula  = String(r[6]  || '');
+        g.bonnet        = String(r[7]  || '');
+        g.rating        = String(r[10] || '');
+        g.body_material = String(r[11] || '');
+        g.conn_inlet    = [r[12], r[13]].filter(Boolean).join(' ');
+        g.conn_outlet   = [r[14], r[15]].filter(Boolean).join(' ');
+        g.seatbore      = r[16] || '';
+        g.end_to_end    = r[17] || '';
+        g.operacion     = String(r[20] || '');
+        g.gearbox       = String(r[21] || '');
+        g.actuador      = String(r[22] || '');
+      }
+      const kks = String(r[3] || '').trim();
+      if (kks && g.kks.indexOf(kks) === -1) g.kks.push(kks);
+    } else if (tipo === 'Spare part') {
+      g.repuestos.push({
+        descripcion: String(r[18] || ''),
+        pos_no: String(r[19] || ''),
+        precio_unitario: Number(r[23]) || 0,
+        precio_total: Number(r[24]) || 0
+      });
+    }
+  }
+  return orden.map(function(k) { return grupos[k]; });
+}
+
+function cruzarValvulaConAlmacen(orderNo, materiales, stockSap) {
+  const prefix = orderNo.toUpperCase();
+  function matchea(texto) {
+    const t = String(texto || '').trim().toUpperCase();
+    if (t.indexOf(prefix) !== 0) return false;
+    const resto = t.slice(prefix.length);
+    return resto === '' || /^[^A-Z0-9]/.test(resto);
+  }
+  const enMateriales = materiales.filter(function(m) { return matchea(m.material); })
+    .map(function(m) { return { codigo_sap: m.codigo_sap, material: m.material, cantidad: m.cantidad, ubicacion: m.ubicacion }; });
+  const codigosEnMateriales = new Set(enMateriales.map(function(m) { return String(m.codigo_sap); }));
+  const enStockSapNoCargados = stockSap.filter(function(s) { return matchea(s.material) && !codigosEnMateriales.has(String(s.codigo_sap)); })
+    .map(function(s) { return { codigo_sap: s.codigo_sap, material: s.material, cantidad: s.cantidad }; });
+  return { materiales: enMateriales, stock_sap_no_cargados: enStockSapNoCargados };
+}
+
+async function abrirValvulasHRSG() {
+  mostrarLoading(true);
+  try {
+    const [resHoja, resStock] = await Promise.all([
+      apiGet('getHojaCruda', { nombreHoja: 'Repuestos valvulas HRSG' }),
+      apiGet('getStockSAP', {})
+    ]);
+    if (!resHoja.ok) throw new Error(resHoja.error);
+    const grupos = parseValvulasHRSG(resHoja.data);
+    const stockSap = resStock.ok ? (resStock.data || []) : [];
+    S.valvulasHRSG = grupos.map(function(g) {
+      return Object.assign({}, g, { cruce: cruzarValvulaConAlmacen(g.order_no, S.materiales, stockSap) });
+    });
+    document.getElementById('valv-filtro').value = '';
+    renderValvulasHRSG(S.valvulasHRSG);
+    abrirOverlay('ov-valvulas-hrsg');
+  } catch(err) {
+    toast(err.message, 'err');
+  } finally {
+    mostrarLoading(false);
+  }
+}
+
+function filtrarValvulasHRSG() {
+  const q = document.getElementById('valv-filtro').value.trim().toUpperCase();
+  const items = !q ? S.valvulasHRSG : S.valvulasHRSG.filter(function(g) {
+    return [g.order_no, g.make, g.fig_no, g.size, g.tipo_valvula].concat(g.kks).join(' ').toUpperCase().indexOf(q) !== -1;
+  });
+  renderValvulasHRSG(items);
+}
+
+function renderValvulaHRSGCard(g) {
+  const kits = g.cruce.materiales;
+  const pendientes = g.cruce.stock_sap_no_cargados;
+  const kitsHtml = kits.map(function(k) {
+    const cls = (Number(k.cantidad) > 0) ? 'con-stock' : 'sin-stock';
+    return '<span class="valv-kit ' + cls + '"><code>' + esc(k.codigo_sap) + '</code> ' + esc(k.material)
+      + ' — ' + esc(String(k.cantidad)) + ' en ' + esc(k.ubicacion || 'almacén') + '</span>';
+  }).join('') + pendientes.map(function(k) {
+    return '<span class="valv-kit sin-stock"><code>' + esc(k.codigo_sap) + '</code> ' + esc(k.material)
+      + ' — en Stock SAP, no cargado en Materiales</span>';
+  }).join('');
+
+  const repuestosHtml = g.repuestos.length
+    ? '<details class="valv-repuestos"><summary>' + g.repuestos.length + ' repuestos ofertados (HP Valves)</summary>'
+      + '<table class="valv-rep-table"><thead><tr><th>Descripción</th><th>Pos.</th><th class="num">Precio unit. [EUR]</th></tr></thead><tbody>'
+      + g.repuestos.map(function(r) {
+          return '<tr><td>' + esc(r.descripcion) + '</td><td>' + esc(r.pos_no) + '</td><td class="num">' + esc(r.precio_unitario.toLocaleString('es-AR')) + '</td></tr>';
+        }).join('')
+      + '</tbody></table></details>'
+    : '';
+
+  return '<div class="gpc-card">'
+    + '<div class="valv-card-header">'
+    + '<code style="font-size:12px;font-weight:700;color:var(--pri)">' + esc(g.order_no) + '</code>'
+    + (g.make ? '<span class="valv-make">' + esc(g.make) + '</span>' : '')
+    + (g.kks.length ? '<span class="valv-kks-count">' + g.kks.length + ' válvula' + (g.kks.length > 1 ? 's' : '') + ' en planta</span>' : '')
+    + '</div>'
+    + '<dl class="gpc-grid">'
+    + (g.tipo_valvula ? '<dt>Tipo</dt><dd>' + esc(g.tipo_valvula) + (g.bonnet ? ' (' + esc(g.bonnet) + ')' : '') + '</dd>' : '')
+    + (g.fig_no ? '<dt>Fig. No</dt><dd>' + esc(g.fig_no) + '</dd>' : '')
+    + (g.size ? '<dt>Tamaño</dt><dd>' + esc(g.size) + '</dd>' : '')
+    + (g.rating ? '<dt>Rating</dt><dd>' + esc(g.rating) + '</dd>' : '')
+    + (g.body_material ? '<dt>Material cuerpo</dt><dd>' + esc(g.body_material) + '</dd>' : '')
+    + (g.conn_inlet ? '<dt>Conexión entrada</dt><dd>' + esc(g.conn_inlet) + '</dd>' : '')
+    + (g.conn_outlet ? '<dt>Conexión salida</dt><dd>' + esc(g.conn_outlet) + '</dd>' : '')
+    + (g.seatbore ? '<dt>Seatbore [mm]</dt><dd>' + esc(String(g.seatbore)) + '</dd>' : '')
+    + (g.end_to_end ? '<dt>End-to-end [mm]</dt><dd>' + esc(String(g.end_to_end)) + '</dd>' : '')
+    + (g.operacion ? '<dt>Operación</dt><dd>' + esc(g.operacion) + (g.gearbox ? ' / ' + esc(g.gearbox) : '') + '</dd>' : '')
+    + '</dl>'
+    + (g.kks.length ? '<div class="valv-kks-list"><strong>KKS:</strong> ' + g.kks.map(function(k) { return esc(k); }).join(', ') + '</div>' : '')
+    + '<div class="valv-kits"><div class="valv-kits-label">Kits en almacén:</div>'
+    + (kitsHtml || '<span class="valv-kit sin-stock">Sin código SAP encontrado</span>') + '</div>'
+    + repuestosHtml
+    + '</div>';
+}
+
+function renderValvulasHRSG(items) {
+  const cont = document.getElementById('valv-cards');
+  const count = document.getElementById('valv-count');
+  const total = S.valvulasHRSG ? S.valvulasHRSG.length : items.length;
+  count.textContent = items.length + ' de ' + total + ' válvulas';
+  cont.innerHTML = items.length
+    ? items.map(renderValvulaHRSGCard).join('')
+    : '<p style="font-size:13px;color:var(--txt2)">Sin resultados</p>';
 }
 
 // ═══════════════════════════════════════════════════════════
