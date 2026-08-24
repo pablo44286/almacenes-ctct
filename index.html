@@ -311,6 +311,9 @@
     .valv-sistema { font-size:10px; font-weight:700; padding:1px 7px; border-radius:99px;
       background:var(--pri); color:#fff; opacity:.75; white-space:nowrap; }
     .valv-operada { color:var(--warn); font-weight:600; }
+    .valv-sin-cotizar { font-size:11px; font-weight:700; padding:1px 8px; border-radius:99px;
+      background:#fee2e2; color:#991b1b; white-space:nowrap; }
+    .valv-nota { font-size:12px; color:var(--txt2); font-style:italic; margin-top:10px; }
     .valv-kits { margin-top:10px; }
     .valv-kits-label { font-size:11px; font-weight:600; color:var(--txt2); margin-bottom:4px; }
     .valv-kit { display:inline-flex; align-items:center; gap:6px; font-size:12px; padding:4px 10px;
@@ -844,8 +847,10 @@
     </div>
     <div class="modal-body">
       <p style="font-size:12.5px;color:var(--txt2);margin:-4px 0 14px">
-        Catálogo de repuestos de las válvulas de las calderas HRSG (HP Valves, HJ Valve, KVT, Dongkang — cotización COP007802).
-        Cruzado en vivo contra Materiales y Stock SAP por referencia (Order no.).
+        Catálogo de válvulas de las calderas HRSG. Las cotizadas (HP Valves, HJ Valve, KVT, Dongkang — cotización COP007802)
+        muestran repuestos ofertados y kits en almacén, cruzado en vivo contra Materiales y Stock SAP por referencia.
+        Las marcadas <span class="valv-sin-cotizar" style="vertical-align:1px">Sin cotización</span> (Flowserve, Pentair, Schroedahl y otras)
+        muestran solo los datos del listado técnico.
       </p>
       <div class="valv-toolbar">
         <input id="valv-filtro" type="text" placeholder="Buscar por marca, tamaño, tipo, referencia o KKS..." oninput="filtrarValvulasHRSG()">
@@ -2102,7 +2107,7 @@ function parseValvulasHRSG(rows) {
         order_no: orderNo, make: '', fig_no: '', size: '', tipo_valvula: '', bonnet: '',
         rating: '', body_material: '', conn_inlet: '', conn_outlet: '',
         seatbore: '', end_to_end: '', operacion: '', gearbox: '', actuador: '',
-        kks: [], repuestos: []
+        kks: [], repuestos: [], cotizada: true
       };
       orden.push(orderNo);
     }
@@ -2163,6 +2168,43 @@ function parseListadoValvulasHRSG(rows) {
   return porTag;
 }
 
+// Válvulas que están en el listado técnico (Listado valvulas HRSG) pero NO en la
+// cotización de HP Valves — no tienen repuestos ni referencia S17+... para cruzar
+// contra almacén, así que se arman con los datos del datasheet nomás.
+function parseValvulasSinCotizar(rows, kksCotizadas) {
+  if (!rows || rows.length < 2) return [];
+  const headers = rows[0].map(function(h) { return String(h || '').trim(); });
+  const idx = {};
+  headers.forEach(function(h, i) { idx[h] = i; });
+
+  const resultado = [];
+  for (let i = 1; i < rows.length; i++) {
+    const r = rows[i];
+    const tag = String(r[idx['Tag_Valvula']] || '').trim().toUpperCase();
+    if (!tag || kksCotizadas.has(tag)) continue;
+
+    const nps = String(r[idx['Tamano_NPS']] || '').trim();
+    const dn  = String(r[idx['Tamano_DN']] || '').trim();
+    resultado.push({
+      order_no: '01' + tag,
+      make: String(r[idx['Fabricante']] || '') || 'Sin fabricante',
+      fig_no: String(r[idx['Modelo']] || ''),
+      size: nps || (dn ? 'DN' + dn : ''),
+      tipo_valvula: String(r[idx['Tipo_Valvula']] || ''),
+      bonnet: '',
+      rating: String(r[idx['Clase_ASME']] || ''),
+      body_material: String(r[idx['Material_Valvula']] || ''),
+      conn_inlet: '', conn_outlet: '', seatbore: '', end_to_end: '',
+      operacion: '', gearbox: '', actuador: '',
+      kks: ['01' + tag],
+      repuestos: [],
+      cotizada: false,
+      cruce: { materiales: [], stock_sap_no_cargados: [] }
+    });
+  }
+  return resultado;
+}
+
 function buscarDatosKKS(kks, listadoPorTag) {
   const tag = String(kks || '').trim().toUpperCase().replace(/^0[12]/, '');
   if (listadoPorTag[tag]) return listadoPorTag[tag];
@@ -2201,9 +2243,18 @@ async function abrirValvulasHRSG() {
     const grupos = parseValvulasHRSG(resHoja.data);
     const stockSap = resStock.ok ? (resStock.data || []) : [];
     S.listadoValvulasHRSG = resListado.ok ? parseListadoValvulasHRSG(resListado.data) : {};
-    S.valvulasHRSG = grupos.map(function(g) {
+
+    const cotizadas = grupos.map(function(g) {
       return Object.assign({}, g, { cruce: cruzarValvulaConAlmacen(g.order_no, S.materiales, stockSap) });
     });
+
+    const kksCotizadas = new Set();
+    cotizadas.forEach(function(g) { g.kks.forEach(function(k) {
+      kksCotizadas.add(String(k).trim().toUpperCase().replace(/^0[12]/, ''));
+    }); });
+    const sinCotizar = resListado.ok ? parseValvulasSinCotizar(resListado.data, kksCotizadas) : [];
+
+    S.valvulasHRSG = cotizadas.concat(sinCotizar);
     document.getElementById('valv-filtro').value = '';
     renderValvulasHRSG(S.valvulasHRSG);
     abrirOverlay('ov-valvulas-hrsg');
@@ -2271,11 +2322,17 @@ function renderValvulaHRSGCard(g) {
       + '</tbody></table></details>'
     : '';
 
+  const kitsSection = g.cotizada
+    ? '<div class="valv-kits"><div class="valv-kits-label">Kits en almacén:</div>'
+      + (kitsHtml || '<span class="valv-kit sin-stock">Sin código SAP encontrado</span>') + '</div>'
+    : '<p class="valv-nota">Sin cotización — no tiene repuestos ofertados ni referencia para buscar kits en almacén.</p>';
+
   return '<div class="gpc-card">'
     + renderValvulaKKSTabla(g.kks)
     + '<div class="valv-card-header">'
     + '<code style="font-size:12px;font-weight:700;color:var(--pri)">' + esc(g.order_no) + '</code>'
     + (g.make ? '<span class="valv-make">' + esc(g.make) + '</span>' : '')
+    + (!g.cotizada ? '<span class="valv-sin-cotizar">Sin cotización</span>' : '')
     + (g.kks.length ? '<span class="valv-kks-count">' + g.kks.length + ' válvula' + (g.kks.length > 1 ? 's' : '') + ' en planta</span>' : '')
     + '</div>'
     + '<dl class="gpc-grid">'
@@ -2290,8 +2347,7 @@ function renderValvulaHRSGCard(g) {
     + (g.end_to_end ? '<dt>End-to-end [mm]</dt><dd>' + esc(String(g.end_to_end)) + '</dd>' : '')
     + (g.operacion ? '<dt>Operación</dt><dd>' + esc(g.operacion) + (g.gearbox ? ' / ' + esc(g.gearbox) : '') + '</dd>' : '')
     + '</dl>'
-    + '<div class="valv-kits"><div class="valv-kits-label">Kits en almacén:</div>'
-    + (kitsHtml || '<span class="valv-kit sin-stock">Sin código SAP encontrado</span>') + '</div>'
+    + kitsSection
     + repuestosHtml
     + '</div>';
 }
