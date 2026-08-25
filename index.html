@@ -884,6 +884,10 @@
           <input type="checkbox" id="chk-conteo-con-stock" style="width:auto">
           Solo materiales con cantidad en sistema mayor a 0
         </label>
+        <label style="display:flex;align-items:center;gap:6px;margin-top:6px;font-weight:400">
+          <input type="checkbox" id="chk-conteo-sin-ubicacion" style="width:auto">
+          Solo materiales sin ubicación o con ubicación no válida
+        </label>
       </div>
       <div id="conteo-doc" style="display:none"></div>
     </div>
@@ -2520,6 +2524,7 @@ async function cargarStockSAP() {
 async function abrirConteoFisico() {
   document.getElementById('inp-cant-conteo').value = 10;
   document.getElementById('chk-conteo-con-stock').checked = false;
+  document.getElementById('chk-conteo-sin-ubicacion').checked = false;
   document.getElementById('conteo-doc').innerHTML   = '';
   document.getElementById('conteo-doc').style.display = 'none';
   document.getElementById('btn-imprimir-conteo').disabled = true;
@@ -2529,15 +2534,16 @@ async function abrirConteoFisico() {
 }
 
 function generarConteoFisico() {
-  const inpCant   = document.getElementById('inp-cant-conteo');
-  const soloStock = document.getElementById('chk-conteo-con-stock').checked;
+  const inpCant         = document.getElementById('inp-cant-conteo');
+  const soloStock       = document.getElementById('chk-conteo-con-stock').checked;
+  const soloSinUbicacion = document.getElementById('chk-conteo-sin-ubicacion').checked;
   const fuente    = S.stockSAP || [];
-  const disponibles = soloStock
-    ? fuente.filter(m => Number(m.cantidad) > 0)
-    : fuente;
+  let disponibles = fuente;
+  if (soloStock) disponibles = disponibles.filter(m => Number(m.cantidad) > 0);
+  if (soloSinUbicacion) disponibles = disponibles.filter(m => clasificarUbicacion(m.ubicacion) !== 'valido');
 
-  if (soloStock && !disponibles.length) {
-    toast('No hay materiales con cantidad en sistema mayor a 0', 'err');
+  if ((soloStock || soloSinUbicacion) && !disponibles.length) {
+    toast('No hay materiales que cumplan los filtros seleccionados', 'err');
     return;
   }
 
