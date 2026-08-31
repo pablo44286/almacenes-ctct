@@ -2920,7 +2920,7 @@ const normDescKPI = s => String(s || '').toUpperCase().trim().replace(/\s+/g, ' 
 // es una heurística sobre el texto: sin dato / válida / con dígitos pero
 // mal formada (variante) / sin dígitos (zona con nombre propio).
 function clasificarUbicacion(ubicRaw) {
-  const u = String(ubicRaw || '').trim();
+  const u = String(ubicRaw || '').trim().toUpperCase();
   if (u === '' || u === '0' || u === '1') return 'sin_ubicacion';
   if (KPI_UBICACION_REGEX.test(u)) return 'valido';
   if (/\d/.test(u)) return 'variante_codigo';
