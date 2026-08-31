@@ -314,6 +314,18 @@
     .valv-sin-cotizar { font-size:11px; font-weight:700; padding:1px 8px; border-radius:99px;
       background:#fee2e2; color:#991b1b; white-space:nowrap; }
     .valv-nota { font-size:12px; color:var(--txt2); font-style:italic; margin-top:10px; }
+
+    /* ── Actualizar masivo: secciones ── */
+    .masivo-seccion h3 { font-size:14px; margin:0 0 8px; color:var(--pri); }
+    .masivo-nota { font-size:12.5px; color:var(--txt2); margin:0 0 10px; }
+    .masivo-radio { display:flex; align-items:flex-start; gap:8px; font-size:13.5px;
+      font-weight:400; margin-bottom:8px; cursor:pointer; }
+    .masivo-radio input { width:auto; margin-top:2px; }
+    .sap-check { display:flex; align-items:center; gap:6px; font-size:13px; font-weight:400; }
+    .sap-check input { width:auto; }
+    .diff-num { font-family:"Cascadia Code","SF Mono",Consolas,monospace; font-variant-numeric:tabular-nums; }
+    .diff-old { color:var(--err); text-decoration:line-through; }
+    .diff-new { color:var(--ok); font-weight:600; }
     .valv-kks-link { color:var(--pri); font-weight:600; text-decoration:underline; text-decoration-style:dotted; }
     .valv-kks-link:hover { text-decoration-style:solid; }
     .valv-kits { margin-top:10px; }
@@ -785,33 +797,74 @@
 
 <!-- ══ MODAL: ACTUALIZACIÓN MASIVA ══════════════════════════ -->
 <div class="overlay" id="ov-actualizar-masivo">
-  <div class="modal" style="max-width:600px">
+  <div class="modal" style="max-width:720px">
     <div class="modal-header">
       <h2>Actualización masiva de stocks y ubicaciones</h2>
       <button class="close" onclick="cerrarOverlay('ov-actualizar-masivo')">✕</button>
     </div>
     <div class="modal-body">
-      <div style="background:var(--bg);border-radius:8px;padding:12px;margin-bottom:16px;font-size:13px">
-        <strong>Formato del CSV:</strong> debe tener cabecera con <code>Codigo_SAP</code> y al menos uno de:<br>
-        <code>Cantidad_en_almacen</code> &nbsp;·&nbsp; <code>Ubicacion_en_almacen</code> &nbsp;·&nbsp;
-        <code>Stock_MIN</code> &nbsp;·&nbsp; <code>Stock_MAX</code> &nbsp;·&nbsp;
-        <code>Area</code> &nbsp;·&nbsp; <code>Observaciones</code><br>
-        <span style="color:var(--txt2)">Solo se actualizan los campos presentes en el CSV.</span>
-        <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
-          <button class="btn-sec btn-sm" onclick="descargarTemplate('stocks')">↓ Template stocks</button>
-          <button class="btn-sec btn-sm" onclick="descargarTemplate('ubicaciones')">↓ Template ubicaciones</button>
-          <button class="btn-sec btn-sm" onclick="descargarTemplate('completo')">↓ Template completo</button>
+
+      <div class="masivo-seccion">
+        <h3>Desde el listado de Stock SAP recién descargado</h3>
+        <p class="masivo-nota">Subí el CSV tal cual lo bajás de SAP (columnas de Material/Código, Ubicación,
+          Libre utilización, etc. — detección automática, igual que la hoja "Stock SAP"). Elegí qué hacer:</p>
+
+        <label class="masivo-radio">
+          <input type="radio" name="modo-sap" value="sync" checked onchange="cambiarModoSAP()">
+          <span>Sincronizar <strong>cantidad</strong> y <strong>ubicación</strong> en Materiales — solo las diferencias encontradas</span>
+        </label>
+        <label class="masivo-radio">
+          <input type="radio" name="modo-sap" value="reemplazar" onchange="cambiarModoSAP()">
+          <span>Reemplazar toda la tabla <strong>Stock SAP</strong> con este archivo</span>
+        </label>
+
+        <input type="file" id="inp-csv-stocksap" accept=".csv,.txt" style="margin:10px 0 12px"
+          onchange="parsearCSVStockSAP(this)">
+
+        <div id="sap-sync-panel">
+          <div id="sap-sync-resumen" style="font-size:13px;color:var(--txt2)"></div>
+          <div id="sap-sync-checks" style="display:none;margin:10px 0;gap:16px;flex-wrap:wrap"></div>
+          <div id="sap-sync-tabla" style="overflow-x:auto;max-height:220px;margin-top:8px"></div>
+          <button class="btn-pri" id="btn-sync-sap" onclick="submitSyncDesdeSAP()" disabled style="margin-top:12px">Aplicar sincronización</button>
+        </div>
+
+        <div id="sap-reemplazar-panel" style="display:none">
+          <div id="sap-reemplazar-resumen" style="font-size:13px;color:var(--txt2)"></div>
+          <label style="display:flex;align-items:center;gap:6px;margin-top:10px;font-weight:400;font-size:13px">
+            <input type="checkbox" id="chk-confirmar-reemplazo" style="width:auto" onchange="actualizarBotonReemplazo()">
+            Entiendo que esto reemplaza TODO el contenido actual de la hoja "Stock SAP"
+          </label>
+          <button class="btn-acc" id="btn-reemplazar-sap" onclick="submitReemplazarStockSAP()" disabled style="margin-top:10px">Reemplazar tabla Stock SAP</button>
         </div>
       </div>
-      <label>Archivo CSV</label>
-      <input type="file" id="inp-csv-masivo" accept=".csv,.txt" style="margin-bottom:14px"
-        onchange="parsearCSVMasivo(this)">
-      <div id="preview-masivo" style="font-size:13px;color:var(--txt2)"></div>
-      <div id="tabla-preview-masivo" style="overflow-x:auto;max-height:200px;margin-top:8px"></div>
+
+      <hr style="margin:22px 0;border:none;border-top:1px solid var(--border)">
+
+      <div class="masivo-seccion">
+        <h3>Desde un CSV ya formateado</h3>
+        <div style="background:var(--bg);border-radius:8px;padding:12px;margin-bottom:16px;font-size:13px">
+          <strong>Formato del CSV:</strong> debe tener cabecera con <code>Codigo_SAP</code> y al menos uno de:<br>
+          <code>Cantidad_en_almacen</code> &nbsp;·&nbsp; <code>Ubicacion_en_almacen</code> &nbsp;·&nbsp;
+          <code>Stock_MIN</code> &nbsp;·&nbsp; <code>Stock_MAX</code> &nbsp;·&nbsp;
+          <code>Area</code> &nbsp;·&nbsp; <code>Observaciones</code><br>
+          <span style="color:var(--txt2)">Solo se actualizan los campos presentes en el CSV.</span>
+          <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn-sec btn-sm" onclick="descargarTemplate('stocks')">↓ Template stocks</button>
+            <button class="btn-sec btn-sm" onclick="descargarTemplate('ubicaciones')">↓ Template ubicaciones</button>
+            <button class="btn-sec btn-sm" onclick="descargarTemplate('completo')">↓ Template completo</button>
+          </div>
+        </div>
+        <label>Archivo CSV</label>
+        <input type="file" id="inp-csv-masivo" accept=".csv,.txt" style="margin-bottom:14px"
+          onchange="parsearCSVMasivo(this)">
+        <div id="preview-masivo" style="font-size:13px;color:var(--txt2)"></div>
+        <div id="tabla-preview-masivo" style="overflow-x:auto;max-height:200px;margin-top:8px"></div>
+        <button class="btn-pri" id="btn-confirmar-masivo" onclick="submitActualizarMasivo()" disabled style="margin-top:12px">Actualizar</button>
+      </div>
+
     </div>
     <div class="modal-footer">
-      <button class="btn-sec" onclick="cerrarOverlay('ov-actualizar-masivo')">Cancelar</button>
-      <button class="btn-pri" id="btn-confirmar-masivo" onclick="submitActualizarMasivo()" disabled>Actualizar</button>
+      <button class="btn-sec" onclick="cerrarOverlay('ov-actualizar-masivo')">Cerrar</button>
     </div>
   </div>
 </div>
@@ -1815,6 +1868,8 @@ async function abrirMovimientosMat() {
 // ═══════════════════════════════════════════════════════════
 
 let csvMasivoData = null;
+let stockSAPCrudoData = null;   // 2D array crudo (encabezado + filas), tal cual el CSV, para "reemplazar"
+let stockSAPDiferencias = null; // diffs calculados para el modo "sync"
 
 const ALIAS_MASIVO = {
   codigo_sap: 'codigo_sap', sap: 'codigo_sap', cod_sap: 'codigo_sap',
@@ -1869,7 +1924,33 @@ function abrirActualizarMasivo() {
   document.getElementById('preview-masivo').textContent = '';
   document.getElementById('tabla-preview-masivo').innerHTML = '';
   document.getElementById('btn-confirmar-masivo').disabled = true;
+
+  stockSAPCrudoData = null;
+  stockSAPDiferencias = null;
+  document.getElementById('inp-csv-stocksap').value = '';
+  document.querySelector('input[name="modo-sap"][value="sync"]').checked = true;
+  document.getElementById('sap-sync-resumen').textContent = '';
+  document.getElementById('sap-sync-checks').style.display = 'none';
+  document.getElementById('sap-sync-checks').innerHTML = '';
+  document.getElementById('sap-sync-tabla').innerHTML = '';
+  document.getElementById('btn-sync-sap').disabled = true;
+  document.getElementById('sap-reemplazar-resumen').textContent = '';
+  document.getElementById('chk-confirmar-reemplazo').checked = false;
+  document.getElementById('btn-reemplazar-sap').disabled = true;
+  cambiarModoSAP();
+
   abrirOverlay('ov-actualizar-masivo');
+}
+
+function cambiarModoSAP() {
+  const modo = document.querySelector('input[name="modo-sap"]:checked').value;
+  document.getElementById('sap-sync-panel').style.display = modo === 'sync' ? '' : 'none';
+  document.getElementById('sap-reemplazar-panel').style.display = modo === 'reemplazar' ? '' : 'none';
+}
+
+function actualizarBotonReemplazo() {
+  const marcado = document.getElementById('chk-confirmar-reemplazo').checked;
+  document.getElementById('btn-reemplazar-sap').disabled = !marcado || !stockSAPCrudoData;
 }
 
 function parsearCSVMasivo(input) {
@@ -1951,6 +2032,202 @@ async function submitActualizarMasivo() {
     toast(d.actualizados + ' registros actualizados' + (d.noEncontrados ? ' · ' + d.noEncontrados + ' no encontrados' : ''), 'ok');
     cerrarOverlay('ov-actualizar-masivo');
     await cargarMateriales();
+  } catch(err) {
+    toast(err.message, 'err');
+  } finally {
+    mostrarLoading(false);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// LISTADO CRUDO DE STOCK SAP — sincronizar Materiales o reemplazar la hoja
+// ═══════════════════════════════════════════════════════════
+// Misma deteccion flexible de columnas que usa el backend para leer la hoja
+// "Stock SAP" (ver getStockSAP en Code.gs) — asi el CSV crudo de SAP se lee
+// igual sin importar el nombre exacto de las columnas.
+const CANDIDATOS_STOCKSAP = {
+  codigo_sap: ['material','codigo_material','cod_material','nro_material','codigo'],
+  material:   ['texto_breve_de_material','texto_breve','descripcion','denominacion','texto_breve_material'],
+  ubicacion:  ['ubicacion','emplazamiento','ubicacion_deposito'],
+  cantidad:   ['libre_utilizacion','libre_utiliz','stock_libre_utilizacion','cantidad']
+};
+
+function normalizeKeyJS(str) {
+  return String(str ?? '').toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g,'')
+    .replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'');
+}
+
+function parsearLineasCSV(texto) {
+  const lines = texto.replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n').filter(l => l.trim());
+  if (lines.length < 2) throw new Error('El archivo está vacío o solo tiene cabecera');
+  const sep = lines[0].includes(';') ? ';' : ',';
+  return lines.map(function(line) {
+    return line.split(sep).map(function(v) { return v.replace(/^["']|["']$/g,'').trim(); });
+  });
+}
+
+function parsearCSVStockSAP(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const filas = parsearLineasCSV(e.target.result);
+      stockSAPCrudoData = filas;
+      actualizarBotonReemplazo();
+      renderResumenReemplazo(filas);
+      procesarModoSync(filas);
+    } catch(err) {
+      stockSAPCrudoData = null;
+      document.getElementById('sap-sync-resumen').textContent = 'Error: ' + err.message;
+      document.getElementById('sap-reemplazar-resumen').textContent = 'Error: ' + err.message;
+      document.getElementById('btn-sync-sap').disabled = true;
+      actualizarBotonReemplazo();
+    }
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+function renderResumenReemplazo(filas) {
+  document.getElementById('sap-reemplazar-resumen').textContent =
+    (filas.length - 1) + ' filas en el archivo (encabezado: ' + filas[0].length + ' columnas).';
+}
+
+function procesarModoSync(filas) {
+  const headers = filas[0].map(normalizeKeyJS);
+  const cols = {};
+  Object.keys(CANDIDATOS_STOCKSAP).forEach(function(campo) {
+    const idx = headers.findIndex(function(h) { return CANDIDATOS_STOCKSAP[campo].indexOf(h) >= 0; });
+    if (idx >= 0) cols[campo] = idx;
+  });
+
+  const resumenEl = document.getElementById('sap-sync-resumen');
+  if (cols.codigo_sap === undefined) {
+    resumenEl.textContent = 'No se pudo detectar la columna de Código SAP en el archivo.';
+    document.getElementById('sap-sync-checks').style.display = 'none';
+    document.getElementById('sap-sync-tabla').innerHTML = '';
+    document.getElementById('btn-sync-sap').disabled = true;
+    stockSAPDiferencias = null;
+    return;
+  }
+
+  const byCodigo = {};
+  S.materiales.forEach(function(m) { byCodigo[String(m.codigo_sap)] = m; });
+
+  const diffs = [];
+  let comparados = 0;
+  for (let i = 1; i < filas.length; i++) {
+    const fila = filas[i];
+    const codigo = String(fila[cols.codigo_sap] || '').trim();
+    if (!codigo) continue;
+    const m = byCodigo[codigo];
+    if (!m) continue;
+    comparados++;
+
+    const cantidadNueva = cols.cantidad !== undefined ? Number(String(fila[cols.cantidad]).replace(',','.')) || 0 : undefined;
+    const ubicacionNueva = cols.ubicacion !== undefined ? String(fila[cols.ubicacion] || '').trim() : undefined;
+    const cantidadActual = Number(m.cantidad) || 0;
+    const ubicacionActual = String(m.ubicacion || '').trim();
+
+    const cambiaCantidad = cantidadNueva !== undefined && cantidadNueva !== cantidadActual;
+    const cambiaUbicacion = ubicacionNueva !== undefined && ubicacionNueva !== ubicacionActual;
+    if (!cambiaCantidad && !cambiaUbicacion) continue;
+
+    diffs.push({
+      codigo_sap: codigo, material: m.material,
+      cantidadActual, cantidadNueva, cambiaCantidad,
+      ubicacionActual, ubicacionNueva, cambiaUbicacion
+    });
+  }
+
+  stockSAPDiferencias = diffs;
+  const nCantidad = diffs.filter(function(d) { return d.cambiaCantidad; }).length;
+  const nUbicacion = diffs.filter(function(d) { return d.cambiaUbicacion; }).length;
+
+  resumenEl.textContent = comparados + ' códigos comparados contra Materiales · ' + diffs.length + ' con diferencias.';
+
+  const checksEl = document.getElementById('sap-sync-checks');
+  if (!diffs.length) {
+    checksEl.style.display = 'none';
+    document.getElementById('sap-sync-tabla').innerHTML = '';
+    document.getElementById('btn-sync-sap').disabled = true;
+    return;
+  }
+  checksEl.style.display = 'flex';
+  checksEl.innerHTML =
+    '<label class="sap-check"><input type="checkbox" id="chk-sync-cantidad" checked onchange="renderTablaDiferenciasSAP()"> Actualizar cantidad (' + nCantidad + ')</label>' +
+    '<label class="sap-check"><input type="checkbox" id="chk-sync-ubicacion" checked onchange="renderTablaDiferenciasSAP()"> Actualizar ubicación (' + nUbicacion + ')</label>';
+
+  renderTablaDiferenciasSAP();
+}
+
+function renderTablaDiferenciasSAP() {
+  const diffs = stockSAPDiferencias || [];
+  const incluirCantidad = document.getElementById('chk-sync-cantidad').checked;
+  const incluirUbicacion = document.getElementById('chk-sync-ubicacion').checked;
+
+  const filasVisibles = diffs.filter(function(d) {
+    return (d.cambiaCantidad && incluirCantidad) || (d.cambiaUbicacion && incluirUbicacion);
+  });
+
+  const thead = '<tr><th>Código SAP</th><th>Material</th><th>Cantidad</th><th>Ubicación</th></tr>';
+  const tbody = filasVisibles.slice(0, 200).map(function(d) {
+    const cantHtml = (d.cambiaCantidad && incluirCantidad)
+      ? '<span class="diff-num diff-old">' + esc(String(d.cantidadActual)) + '</span> → <span class="diff-num diff-new">' + esc(String(d.cantidadNueva)) + '</span>'
+      : '<span class="diff-num">' + esc(String(d.cantidadActual)) + '</span>';
+    const ubicHtml = (d.cambiaUbicacion && incluirUbicacion)
+      ? '<span class="diff-old">' + esc(d.ubicacionActual || '—') + '</span> → <span class="diff-new">' + esc(d.ubicacionNueva || '—') + '</span>'
+      : esc(d.ubicacionActual || '—');
+    return '<tr><td><code>' + esc(d.codigo_sap) + '</code></td><td>' + esc(d.material) + '</td><td>' + cantHtml + '</td><td>' + ubicHtml + '</td></tr>';
+  }).join('');
+
+  document.getElementById('sap-sync-tabla').innerHTML =
+    '<table class="mov-table"><thead>' + thead + '</thead><tbody>' + tbody + '</tbody></table>' +
+    (filasVisibles.length > 200 ? '<p style="font-size:12px;color:var(--txt2);margin-top:4px">... y ' + (filasVisibles.length - 200) + ' más</p>' : '');
+
+  document.getElementById('btn-sync-sap').disabled = !filasVisibles.length;
+}
+
+async function submitSyncDesdeSAP() {
+  const diffs = stockSAPDiferencias || [];
+  const incluirCantidad = document.getElementById('chk-sync-cantidad').checked;
+  const incluirUbicacion = document.getElementById('chk-sync-ubicacion').checked;
+
+  const actualizaciones = diffs.map(function(d) {
+    const campos = {};
+    if (d.cambiaCantidad && incluirCantidad) campos.cantidad = d.cantidadNueva;
+    if (d.cambiaUbicacion && incluirUbicacion) campos.ubicacion = d.ubicacionNueva;
+    return { codigo_sap: d.codigo_sap, campos };
+  }).filter(function(r) { return Object.keys(r.campos).length > 0; });
+
+  if (!actualizaciones.length) return;
+
+  mostrarLoading(true);
+  try {
+    const res = await apiPost({ action: 'actualizarMasivo', actualizaciones, usuario: S.usuario });
+    if (!res.ok) throw new Error(res.error);
+    const d = res.data;
+    toast(d.actualizados + ' registros sincronizados' + (d.noEncontrados ? ' · ' + d.noEncontrados + ' no encontrados' : ''), 'ok');
+    cerrarOverlay('ov-actualizar-masivo');
+    await cargarMateriales();
+  } catch(err) {
+    toast(err.message, 'err');
+  } finally {
+    mostrarLoading(false);
+  }
+}
+
+async function submitReemplazarStockSAP() {
+  if (!stockSAPCrudoData || !stockSAPCrudoData.length) return;
+  if (!document.getElementById('chk-confirmar-reemplazo').checked) return;
+
+  mostrarLoading(true);
+  try {
+    const res = await apiPost({ action: 'reemplazarStockSAP', filas: stockSAPCrudoData, usuario: S.usuario });
+    if (!res.ok) throw new Error(res.error);
+    toast('Hoja "Stock SAP" reemplazada: ' + res.data.filas + ' filas nuevas', 'ok');
+    cerrarOverlay('ov-actualizar-masivo');
   } catch(err) {
     toast(err.message, 'err');
   } finally {
