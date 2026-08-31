@@ -2789,6 +2789,11 @@ async function cargarStockSAP() {
       toast('La hoja "Stock SAP" está vacía o no se pudo leer', 'err');
       return false;
     }
+    const btnKPIs = document.getElementById('btn-kpis');
+    if (btnKPIs) {
+      btnKPIs.title = 'KPIs de calidad de ubicación (Plan de Mejora del Maestro de Materiales) — '
+        + S.stockSAP.length.toLocaleString('es-AR') + ' materiales analizados en Stock SAP';
+    }
     return true;
   } catch (err) {
     toast('Error al cargar Stock SAP: ' + err.message, 'err');
