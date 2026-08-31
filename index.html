@@ -944,7 +944,7 @@
       </div>
       <p style="font-size:11px;color:var(--txt2);margin-top:18px">
         Formato de ubicación válido: prefijo de zona oficial (2 dígitos) + dos letras + dos dígitos, guion,
-        dos dígitos (ej. 10BB02-30). Solo se considera stock de libre utilización (campo "Libre utilización"
+        dos o tres dígitos (ej. 10BB02-30 o 41AA02-140). Solo se considera stock de libre utilización (campo "Libre utilización"
         de SAP). KPI 3/4 agrupan por descripción normalizada y excluyen materiales marcados "NO UTILIZAR".
       </p>
     </div>
@@ -2632,7 +2632,9 @@ function generarConteoFisico() {
 // ═══════════════════════════════════════════════════════════
 // Formato reforzado confirmado con Lucas (11/08/2026): el prefijo de zona
 // no es libre, tiene que ser una de las 13 zonas oficiales del almacén.
-const KPI_UBICACION_REGEX = /^(10|20|30|4[1-9]|50)[A-Z]{2}\d{2}-\d{2}$/;
+// Ajuste 2026-08-31: el tramo despues del guion puede ser de 2 o 3 digitos
+// (no solo 2), la estructura del prefijo de zona no cambia.
+const KPI_UBICACION_REGEX = /^(10|20|30|4[1-9]|50)[A-Z]{2}\d{2}-\d{2,3}$/;
 const KPI1_META_PCT = 95;
 const normDescKPI = s => String(s || '').toUpperCase().trim().replace(/\s+/g, ' ');
 
