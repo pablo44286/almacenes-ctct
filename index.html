@@ -2789,10 +2789,14 @@ async function cargarStockSAP() {
       toast('La hoja "Stock SAP" está vacía o no se pudo leer', 'err');
       return false;
     }
+    const totalTexto = S.stockSAP.length.toLocaleString('es-AR') + ' materiales analizados en Stock SAP';
     const btnKPIs = document.getElementById('btn-kpis');
     if (btnKPIs) {
-      btnKPIs.title = 'KPIs de calidad de ubicación (Plan de Mejora del Maestro de Materiales) — '
-        + S.stockSAP.length.toLocaleString('es-AR') + ' materiales analizados en Stock SAP';
+      btnKPIs.title = 'KPIs de calidad de ubicación (Plan de Mejora del Maestro de Materiales) — ' + totalTexto;
+    }
+    const btnConteo = document.getElementById('btn-conteo-fisico');
+    if (btnConteo) {
+      btnConteo.title = 'Genera una planilla imprimible con materiales al azar (fuente: hoja Stock SAP) para el conteo físico — ' + totalTexto;
     }
     return true;
   } catch (err) {
