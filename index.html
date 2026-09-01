@@ -1906,7 +1906,7 @@ function descargarTemplate(tipo) {
     }).join(';');
   });
 
-  const csv  = '﻿' + [header].concat(rows).join('\r\n');
+  const csv  = '﻿sep=;\r\n' + [header].concat(rows).join('\r\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const url  = URL.createObjectURL(blob);
   const a    = Object.assign(document.createElement('a'), {
@@ -2247,7 +2247,7 @@ function exportarCSV() {
   const rows   = datos.map(m =>
     cols.map(c => `"${String(m[c] ?? '').replace(/"/g,'""')}"`).join(';')
   );
-  const csv = '﻿' + [header, ...rows].join('\r\n'); // BOM para Excel
+  const csv = '﻿sep=;\r\n' + [header, ...rows].join('\r\n'); // BOM + sep hint para Excel
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const url  = URL.createObjectURL(blob);
   const a    = Object.assign(document.createElement('a'), {
@@ -3051,7 +3051,7 @@ function exportarCSVGenerico(rows, cols, filenamePrefix) {
   if (!rows.length) { toast('No hay datos para exportar', 'err'); return; }
   const header = cols.join(';');
   const csvRows = rows.map(r => cols.map(c => `"${String(r[c] ?? '').replace(/"/g, '""')}"`).join(';'));
-  const csv  = '﻿' + [header, ...csvRows].join('\r\n');
+  const csv  = '﻿sep=;\r\n' + [header, ...csvRows].join('\r\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const url  = URL.createObjectURL(blob);
   const a    = Object.assign(document.createElement('a'), {
