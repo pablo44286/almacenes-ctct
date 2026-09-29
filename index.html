@@ -3,175 +3,354 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AlmacenesCTCT — Gestión de Inventario</title>
+  <title>Almacenes CTCT | Gestión de inventario</title>
+  <meta name="description" content="Gestión de inventario de materiales del almacén de la Central Térmica Cogeneración Timbúes.">
   <style>
+    /* ═══ Tokens ═════════════════════════════════════════════
+       Un solo acento (azul marino), grises fríos de una sola
+       familia y rojo/ámbar/verde reservados para estados.     */
     :root {
-      --pri:    #1e3a5f;
-      --pri-l:  #2d5282;
-      --acc:    #f97316;
-      --bg:     #f1f5f9;
-      --card:   #ffffff;
-      --txt:    #1e293b;
-      --txt2:   #64748b;
-      --border: #e2e8f0;
-      --ok:     #16a34a;
-      --err:    #dc2626;
-      --warn:   #d97706;
+      --pri:        #1e3a5f;
+      --pri-l:      #2a4c76;
+      --pri-bg:     #e8eef5;
+      --acc:        var(--pri);  /* el naranja se retiró: todo acento usa --pri */
+      --bg:         #f3f5f8;
+      --card:       #ffffff;
+      --surface-2:  #f7f9fb;
+      --hover:      #eef2f6;
+      --txt:        #1b2430;
+      --txt2:       #566271;
+      --txt3:       #6b7583;
+      --border:     #dfe4ea;
+      --border-2:   #c5cdd7;
+      --focus:      #2f6fb3;
+      --ok:         #1f7a3d;
+      --ok-bg:      #e8f4ec;
+      --err:        #b42318;
+      --err-bg:     #fcebe9;
+      --warn:       #9a5b06;
+      --warn-bg:    #fdf3e2;
+
+      --font: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+      --mono: "Cascadia Mono", Consolas, "SF Mono", ui-monospace, monospace;
+
+      --r-sm: 4px;   /* chips, etiquetas */
+      --r:    6px;   /* botones, campos */
+      --r-lg: 8px;   /* paneles, tabla, modales */
+
+      --shadow-sm:  0 1px 2px rgba(16, 32, 56, .06);
+      --shadow-pop: 0 16px 40px rgba(16, 32, 56, .16), 0 2px 6px rgba(16, 32, 56, .06);
+
+      --z-sticky:   10;
+      --z-modal:    1000;
+      --z-loading:  1100;
+      --z-toast:    1200;
+      --z-lightbox: 1300;
     }
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--txt); font-size: 14px; }
+    body {
+      font-family: var(--font); background: var(--bg); color: var(--txt);
+      font-size: 14px; line-height: 1.45; -webkit-font-smoothing: antialiased;
+    }
     a { color: var(--pri); }
+    code { font-family: var(--mono); font-size: .92em; }
+    .sr-only {
+      position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+      overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+    }
+    :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+    }
 
-    /* ── Login ── */
+    /* ═══ Botones ═════════════════════════════════════════════ */
+    .btn-pri, .btn-sec, .btn-danger, .btn-acc {
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      font-family: inherit; font-size: 13px; font-weight: 600; line-height: 1.2;
+      padding: 8px 14px; border-radius: var(--r); cursor: pointer; white-space: nowrap;
+      border: 1px solid transparent;
+      transition: background-color .15s, border-color .15s, color .15s, transform .08s;
+    }
+    .btn-pri:active, .btn-sec:active, .btn-danger:active, .btn-acc:active { transform: translateY(1px); }
+    .btn-pri:disabled, .btn-sec:disabled, .btn-danger:disabled, .btn-acc:disabled,
+    .pagination button:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+    .btn-pri, .btn-acc { background: var(--pri); color: #fff; }
+    .btn-pri:hover:not(:disabled), .btn-acc:hover:not(:disabled) { background: var(--pri-l); }
+    .btn-sec { background: var(--card); color: var(--txt); border-color: var(--border-2); font-weight: 500; }
+    .btn-sec:hover:not(:disabled) { background: var(--hover); border-color: #aeb8c4; }
+    .btn-danger { background: var(--err); color: #fff; }
+    .btn-danger:hover:not(:disabled) { background: #97201a; }
+    .btn-sm { padding: 4px 10px; font-size: 12px; }
+
+    /* ═══ Login ═══════════════════════════════════════════════ */
     #login-screen {
-      min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      min-height: 100vh; min-height: 100dvh; display: flex; align-items: center; justify-content: center;
+      padding: 24px 16px;
     }
     .login-card {
-      background: var(--card); border-radius: 12px; padding: 40px 48px;
-      box-shadow: 0 4px 24px rgba(0,0,0,.12); width: 100%; max-width: 380px; text-align: center;
+      background: var(--card); border: 1px solid var(--border); border-radius: var(--r-lg);
+      padding: 36px 40px 32px; box-shadow: var(--shadow-sm); width: 100%; max-width: 400px;
     }
-    .login-card h1 { font-size: 22px; color: var(--pri); margin-bottom: 4px; }
-    .login-card p  { color: var(--txt2); margin-bottom: 28px; font-size: 13px; }
-    .login-card input {
-      width: 100%; padding: 10px 14px; border: 1px solid var(--border);
-      border-radius: 8px; font-size: 14px; margin-bottom: 16px;
-    }
-    .login-card input:focus { outline: 2px solid var(--pri); border-color: transparent; }
-    .btn-pri {
-      background: var(--pri); color: #fff; border: none; border-radius: 8px;
-      padding: 10px 20px; font-size: 14px; font-weight: 600; cursor: pointer;
-      transition: background .15s;
-    }
-    .btn-pri:hover { background: var(--pri-l); }
-    .btn-sec {
-      background: #fff; color: var(--txt); border: 1px solid var(--border);
-      border-radius: 8px; padding: 8px 16px; font-size: 13px; cursor: pointer;
-    }
-    .btn-sec:hover { background: var(--bg); }
-    .btn-danger {
-      background: var(--err); color: #fff; border: none; border-radius: 8px;
-      padding: 8px 16px; font-size: 13px; cursor: pointer;
-    }
-    .btn-acc {
-      background: var(--acc); color: #fff; border: none; border-radius: 8px;
-      padding: 8px 16px; font-size: 13px; font-weight: 600; cursor: pointer;
-    }
-    .btn-sm { padding: 4px 10px; font-size: 12px; border-radius: 6px; }
+    .login-logo { display: block; height: 44px; max-width: 100%; object-fit: contain; margin-bottom: 28px; }
+    .login-card h1 { font-size: 20px; font-weight: 600; letter-spacing: -.01em; margin-bottom: 2px; }
+    .login-card p  { color: var(--txt2); margin-bottom: 24px; font-size: 13px; }
+    .login-card .campo { margin-bottom: 14px; }
+    .login-error { color: var(--err); font-size: 13px; min-height: 20px; margin-bottom: 10px; }
+    .login-card .btn-pri { width: 100%; padding: 10px 16px; font-size: 14px; }
 
-    /* ── App ── */
+    /* ═══ Encabezado ══════════════════════════════════════════ */
     #app { display: none; }
     header {
-      background: var(--pri); color: #fff; padding: 0 24px;
-      display: flex; align-items: center; height: 54px; gap: 16px;
-      box-shadow: 0 2px 8px rgba(0,0,0,.2);
+      background: var(--card); color: var(--txt); padding: 0 24px;
+      display: flex; align-items: center; height: 56px; gap: 16px;
+      border-bottom: 1px solid var(--border);
     }
-    header .logo { font-weight: 700; font-size: 17px; flex: 1; }
-    header .logo span { color: var(--acc); }
-    header .usr { font-size: 13px; opacity: .85; }
-    header button.logout { background: none; border: 1px solid rgba(255,255,255,.4);
-      color: #fff; padding: 4px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; }
+    .header-logo { height: 34px; object-fit: contain; }
+    header .logo {
+      font-weight: 600; font-size: 15px; flex: 1; color: var(--txt);
+      padding-left: 16px; border-left: 1px solid var(--border); line-height: 24px; white-space: nowrap;
+    }
+    header .logo span { color: var(--pri); }
+    .ultima-act { font-size: 12px; color: var(--txt3); }
+    header .usr { font-size: 13px; color: var(--txt2); }
+    header button.logout {
+      background: var(--card); border: 1px solid var(--border-2); color: var(--txt);
+      padding: 5px 12px; border-radius: var(--r); cursor: pointer; font: inherit; font-size: 12px; font-weight: 500;
+      transition: background-color .15s;
+    }
+    header button.logout:hover { background: var(--hover); }
 
+    /* ═══ Barra de herramientas ═══════════════════════════════ */
     .toolbar {
       background: var(--card); border-bottom: 1px solid var(--border);
-      padding: 12px 24px; display: flex; flex-direction: column; gap: 10px;
+      padding: 14px 24px 12px; display: flex; flex-direction: column; gap: 12px;
     }
     .toolbar-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-    .search-wrap { display: flex; gap: 0; flex: 1; min-width: 260px; }
-    .search-wrap select {
-      padding: 9px 10px; border: 1px solid var(--border); background: var(--bg);
-      border-radius: 8px 0 0 8px; border-right: none; font-size: 13px; cursor: pointer;
-      white-space: nowrap; max-width: 200px;
-    }
+    .toolbar-main .btn-pri { height: 40px; padding: 0 18px; font-size: 14px; }
+    .search-wrap { display: flex; gap: 0; flex: 1; min-width: 260px; max-width: 880px; }
     .search-wrap input {
-      flex: 1; padding: 9px 14px; border: 1px solid var(--border);
-      border-radius: 0 8px 8px 0; font-size: 14px;
+      flex: 1; height: 40px; padding: 0 14px; font-size: 15px;
+      border: 1px solid var(--border-2); border-right: none; border-radius: var(--r) 0 0 var(--r);
     }
-    .search-wrap input:focus { outline: 2px solid var(--pri); z-index: 1; }
-    .toolbar .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .search-wrap input:focus { position: relative; z-index: 1; }
+    .toolbar .actions { display: flex; gap: 8px 20px; flex-wrap: wrap; align-items: center; width: 100%; }
+    .tool-group { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+    .tool-group-label {
+      font-size: 12px; font-weight: 600; color: var(--txt3); margin-right: 2px;
+    }
+    .tool-group + .tool-group { padding-left: 20px; border-left: 1px solid var(--border); }
+    .tool-group-end { margin-left: auto; }
+    .toolbar .actions .btn-sec { padding: 6px 12px; }
 
     .stats-bar {
-      padding: 8px 24px; font-size: 12px; color: var(--txt2);
-      display: flex; align-items: center; gap: 16px;
+      padding: 12px 24px 8px; font-size: 13px; color: var(--txt2);
+      display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
     }
-    .badge { background: var(--pri); color: #fff; padding: 2px 8px;
-      border-radius: 99px; font-size: 11px; font-weight: 600; }
-    .badge.warn { background: var(--warn); }
+    .badge {
+      display: inline-block; background: var(--pri-bg); color: var(--pri);
+      padding: 1px 7px; border-radius: var(--r-sm); font-size: 12px; font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+    .badge.warn { background: var(--warn-bg); color: var(--warn); }
 
-    /* ── Tabla ── */
+    /* ═══ Tabla ═══════════════════════════════════════════════ */
     .table-wrap { overflow-x: auto; padding: 0 24px 24px; }
-    table { width: 100%; border-collapse: collapse; background: var(--card);
-      border-radius: 10px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
-    thead { background: var(--pri); color: #fff; }
-    th { padding: 10px 12px; text-align: left; font-weight: 600; font-size: 12px;
-      white-space: nowrap; position: relative; }
-    th.sortable { cursor: pointer; user-select: none; }
-    th.sortable:hover { background: var(--pri-l); }
-    th.sort-asc::after  { content: ' ↑'; opacity: .9; }
-    th.sort-desc::after { content: ' ↓'; opacity: .9; }
+    /* Encabezado fijo: en pantallas de 1280 px o más la tabla se ajusta al
+       ancho disponible (Material y Observaciones muestran hasta dos renglones)
+       y el contenedor recorta en lugar de desplazarse, así el <thead> puede
+       quedar pegado arriba. Si el usuario redimensionó columnas a mano (la
+       tabla pasa a table-layout: fixed), se vuelve al desplazamiento horizontal. */
+    @media (min-width: 1280px) {
+      #app .table-wrap { overflow-x: clip; }
+      #app .table-wrap:has(> table[style*="fixed"]) { overflow-x: auto; }
+      #app .table-wrap > table > thead th { position: sticky; top: 0; z-index: var(--z-sticky); }
+      #app .table-wrap > table:not([style*="fixed"]) #thead-row th:nth-child(2) { width: 40%; }
+      #app .table-wrap > table:not([style*="fixed"]) #thead-row th:nth-child(9) { width: 16%; }
+      #app .table-wrap > table:not([style*="fixed"]) td.td-mat { max-width: 0; }
+      #app .table-wrap > table:not([style*="fixed"]) td.td-mat span {
+        white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+        overflow: hidden; overflow-wrap: anywhere;
+      }
+      .btn-ver-mob { display: none; }  /* la fila completa ya abre el detalle */
+    }
+    table {
+      width: 100%; border-collapse: separate; border-spacing: 0; background: var(--card);
+      border: 1px solid var(--border); border-radius: var(--r-lg);
+    }
+    thead { background: var(--surface-2); color: var(--txt2); }
+    th {
+      padding: 9px 10px; text-align: left; font-weight: 600; font-size: 12px; color: #3b4654;
+      white-space: nowrap; position: relative; background: var(--surface-2);
+      border-bottom: 1px solid var(--border-2);
+    }
+    thead tr:first-child th:first-child { border-top-left-radius: var(--r-lg); }
+    thead tr:first-child th:last-child  { border-top-right-radius: var(--r-lg); }
+    th.sortable { cursor: pointer; user-select: none; transition: background-color .15s; }
+    th.sortable:hover { background: var(--hover); color: var(--txt); }
+    th.sort-asc, th.sort-desc { color: var(--pri); }
+    th.sort-asc::after  { content: ' ↑'; }
+    th.sort-desc::after { content: ' ↓'; }
     .col-resizer { position: absolute; top: 0; right: -3px; width: 6px; height: 100%;
       cursor: col-resize; z-index: 3; }
-    .col-resizer:hover, .col-resizer.resizing { background: rgba(255,255,255,.35); }
-    td { padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
-    tr:last-child td { border-bottom: none; }
-    tr:hover td { background: #f8fafc; }
+    .col-resizer:hover, .col-resizer.resizing { background: rgba(30, 58, 95, .25); }
+    td { padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    /* Códigos, cantidades y botones sin cortes de renglón */
+    #tbody td:nth-child(1), #tbody td:nth-child(3), #tbody td:nth-child(4), #tbody td:nth-child(6),
+    #tbody td:nth-child(7), #tbody td:nth-child(8), #tbody td:nth-child(10), #tbody td:nth-child(11) { white-space: nowrap; }
+    #tbody td:nth-child(3), #tbody td:nth-child(4) { max-width: 150px; overflow: hidden; text-overflow: ellipsis; }
+    #tbody .chip { max-width: 124px; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
+    @media (min-width: 1600px) { #tbody .chip { max-width: 200px; } }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover td { background: var(--hover); }
+    #tbody tr { cursor: pointer; }
+    #tbody td code { color: var(--txt); font-variant-numeric: tabular-nums; }
+    /* Cantidad (8.ª columna) alineada a la derecha para comparar cifras */
+    #thead-row th:nth-child(8), #tbody td:nth-child(8) { text-align: right; }
+    /* Imagen (10.ª columna) centrada */
+    #thead-row th:nth-child(10), #tbody td:nth-child(10) { text-align: center; }
     .td-mat { max-width: 300px; }
     .td-mat span { display: block; white-space: nowrap; overflow: hidden;
       text-overflow: ellipsis; max-width: 100%; }
-    .cant { font-weight: 700; }
+    .cant { font-weight: 600; font-variant-numeric: tabular-nums; }
     .cant.low { color: var(--warn); }
     .cant.zero { color: var(--err); }
-    .chip { display: inline-block; background: var(--bg); border: 1px solid var(--border);
-      padding: 2px 8px; border-radius: 99px; font-size: 11px; color: var(--txt2); }
+    .img-si { color: var(--ok); font-weight: 600; }
+    .img-no, .vacio { color: var(--txt3); }
+    .chip { display: inline-block; background: #eef1f5; color: var(--txt2);
+      padding: 1px 7px; border-radius: var(--r-sm); font-size: 12px; white-space: nowrap; }
     .action-btns { display: flex; gap: 4px; }
 
-    /* ── Paginación ── */
-    .pagination { display: flex; gap: 8px; align-items: center;
-      justify-content: center; padding: 16px 0; }
-    .pagination button { padding: 6px 14px; border: 1px solid var(--border);
-      background: var(--card); border-radius: 6px; cursor: pointer; font-size: 13px; }
-    .pagination button.active { background: var(--pri); color: #fff; border-color: var(--pri); }
-    .pagination span { font-size: 13px; color: var(--txt2); }
+    /* ═══ Paginación ══════════════════════════════════════════ */
+    .pagination { display: flex; gap: 4px; align-items: center;
+      justify-content: flex-end; padding: 14px 0 0; }
+    .pagination button {
+      min-width: 32px; height: 32px; padding: 0 10px; border: 1px solid var(--border-2);
+      background: var(--card); border-radius: var(--r); cursor: pointer; font: inherit; font-size: 13px;
+      font-variant-numeric: tabular-nums; transition: background-color .15s;
+    }
+    .pagination button:hover:not(:disabled):not(.active) { background: var(--hover); }
+    .pagination button.active { background: var(--pri); color: #fff; border-color: var(--pri); font-weight: 600; }
+    .pagination span { font-size: 13px; color: var(--txt2); padding: 0 4px; }
+    .pagination span:last-child { margin-left: 12px; }
 
-    /* ── Modales ── */
+    /* ═══ Modales ═════════════════════════════════════════════ */
     .overlay {
-      position: fixed; inset: 0; background: rgba(0,0,0,.45);
+      position: fixed; inset: 0; background: rgba(16, 24, 40, .45);
       display: none; align-items: flex-start; justify-content: center;
-      padding: 32px 16px; z-index: 1000; overflow-y: auto;
+      padding: 32px 16px; z-index: var(--z-modal); overflow-y: auto;
     }
     .overlay.open { display: flex; }
     .modal {
-      background: var(--card); border-radius: 12px; width: 100%; max-width: 720px;
-      box-shadow: 0 8px 40px rgba(0,0,0,.2); animation: fadeUp .18s ease;
+      background: var(--card); border-radius: var(--r-lg); width: 100%; max-width: 720px;
+      box-shadow: var(--shadow-pop); animation: fadeUp .18s cubic-bezier(.16, 1, .3, 1);
     }
-    @keyframes fadeUp { from { transform: translateY(16px); opacity: 0; } to { transform: none; opacity: 1; } }
+    @keyframes fadeUp { from { transform: translateY(12px); opacity: 0; } to { transform: none; opacity: 1; } }
     .modal-header {
-      padding: 18px 24px; border-bottom: 1px solid var(--border);
+      padding: 14px 16px 14px 24px; border-bottom: 1px solid var(--border);
       display: flex; align-items: center; gap: 12px;
     }
-    .modal-header h2 { font-size: 16px; flex: 1; }
+    .modal-header h2 { font-size: 16px; font-weight: 600; flex: 1; letter-spacing: -.005em; }
     .modal-header button.close {
-      background: none; border: none; font-size: 20px; cursor: pointer;
-      color: var(--txt2); line-height: 1;
+      background: none; border: none; font-size: 16px; cursor: pointer; color: var(--txt2);
+      line-height: 1; width: 32px; height: 32px; border-radius: var(--r);
+      display: inline-flex; align-items: center; justify-content: center; transition: background-color .15s;
     }
-    .modal-body { padding: 24px; }
+    .modal-header button.close:hover { background: var(--hover); color: var(--txt); }
+    .modal-body { padding: 20px 24px 24px; }
     .modal-footer {
-      padding: 16px 24px; border-top: 1px solid var(--border);
+      padding: 14px 24px; border-top: 1px solid var(--border); background: var(--surface-2);
       display: flex; gap: 10px; justify-content: flex-end;
+      border-radius: 0 0 var(--r-lg) var(--r-lg);
     }
+    .modal-intro { font-size: 13px; color: var(--txt2); margin-bottom: 16px; max-width: 72ch; }
+    .modal-nota { font-size: 12px; color: var(--txt2); margin-top: 18px; max-width: 90ch; }
+    .modal-xs { max-width: 420px; }
+    .modal-sm { max-width: 480px; }
+    .modal-md { max-width: 560px; }
+    .modal-lg { max-width: 800px; }
+    .modal-xl { max-width: 900px; }
+    .modal-xxl { max-width: 960px; }
+    .separador { margin: 24px 0; border: none; border-top: 1px solid var(--border); }
 
-    /* ── Conteo físico ── */
+    /* ═══ Detalle ═════════════════════════════════════════════ */
+    #ov-detalle .modal { max-width: 1100px; }
+    .det-panels { display: flex; gap: 0; max-height: 72vh; min-height: 0; }
+    #det-body { flex: 1; min-width: 0; border-right: 1px solid var(--border); overflow-y: auto; }
+    #det-gpc { width: 420px; min-width: 320px; overflow-y: auto; padding: 20px 24px 24px; background: var(--surface-2); }
+    .detail-grid { display: grid; grid-template-columns: minmax(140px, 38%) 1fr; gap: 0; }
+    .detail-row { padding: 9px 0; border-bottom: 1px solid var(--border); display: contents; }
+    .detail-key { padding: 8px 12px 8px 0; font-size: 12px; font-weight: 600;
+      color: var(--txt2); border-bottom: 1px solid var(--border); }
+    .detail-val { padding: 8px 0; border-bottom: 1px solid var(--border); word-break: break-word; }
+    .detail-img { width: 100%; max-height: 220px; object-fit: contain; background: var(--surface-2);
+      border: 1px solid var(--border); border-radius: var(--r-lg); margin-bottom: 16px; }
+    .no-img { display: flex; align-items: center; justify-content: center;
+      height: 120px; background: var(--surface-2); border-radius: var(--r-lg);
+      color: var(--txt3); font-size: 12px; margin-bottom: 16px; border: 1px dashed var(--border-2); }
+    .img-preview { max-height: 120px; border-radius: var(--r); border: 1px solid var(--border); }
+    .aviso {
+      border-radius: var(--r-lg); padding: 10px 14px; margin-bottom: 14px; font-size: 12px;
+      border: 1px solid transparent;
+    }
+    .aviso-warn { background: var(--warn-bg); border-color: #efd29c; color: #6b3f03; }
+    .texto-sec { font-size: 12px; color: var(--txt2); }
+    .texto-err { font-size: 12px; color: var(--err); }
+
+    /* ═══ Formularios ═════════════════════════════════════════ */
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 16px; }
+    .form-grid .span2 { grid-column: span 2; }
+    .form-seccion {
+      grid-column: span 2; font-size: 13px; font-weight: 600; color: var(--txt);
+      padding-top: 10px; margin-top: 4px; border-top: 1px solid var(--border);
+    }
+    .form-seccion:first-child { padding-top: 0; margin-top: 0; border-top: none; }
+    label { display: block; font-size: 12px; font-weight: 600; color: #3b4654; margin-bottom: 5px; }
+    input[type=text], input[type=number], input[type=password], select, textarea {
+      width: 100%; padding: 7px 10px; border: 1px solid var(--border-2);
+      border-radius: var(--r); font-family: inherit; font-size: 14px; background: #fff; color: var(--txt);
+      transition: border-color .15s, box-shadow .15s;
+    }
+    input[type=text], input[type=number], input[type=password], select { height: 36px; }
+    input::placeholder, textarea::placeholder { color: var(--txt3); }
+    input:focus, select:focus, textarea:focus {
+      outline: none; border-color: var(--pri); box-shadow: 0 0 0 3px rgba(30, 58, 95, .16);
+    }
+    input[type=number] { font-variant-numeric: tabular-nums; }
+    input[type=file] { font: inherit; font-size: 13px; color: var(--txt2); }
+    input[type=file]::file-selector-button {
+      font: inherit; font-size: 13px; font-weight: 500; margin-right: 10px; padding: 6px 12px;
+      border: 1px solid var(--border-2); border-radius: var(--r); background: var(--card); color: var(--txt); cursor: pointer;
+    }
+    input[type=file]::file-selector-button:hover { background: var(--hover); }
+    input[type=checkbox], input[type=radio] { accent-color: var(--pri); width: auto; }
+    textarea { resize: vertical; min-height: 64px; line-height: 1.45; }
+    .required-mark { color: var(--err); }
+    .ayuda { display: block; color: var(--txt2); font-size: 12px; margin: 2px 0 6px; }
+    .check { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 400; color: var(--txt); cursor: pointer; }
+    .fila-controles { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .mb-8 { margin-bottom: 8px; }
+    .mt-6 { margin-top: 6px; }
+    .mt-10 { margin-top: 10px; }
+    .mt-12 { margin-top: 12px; }
+
+    /* ═══ Conteo físico (pantalla) ════════════════════════════ */
     .conteo-controles { margin-bottom: 20px; }
     .conteo-controles label { margin-bottom: 8px; }
+    .conteo-controles .check { margin-bottom: 0; }
+    #inp-cant-conteo { width: 100px; }
+
+    /* ═══ Conteo físico (documento imprimible: sin cambios) ═══ */
     #conteo-doc { color: #111; }
     .conteo-header { display: flex; align-items: center; justify-content: center; gap: 14px; text-align: center; margin-bottom: 16px; }
     .conteo-header .conteo-logo { height: 48px; border-radius: 4px; object-fit: contain; }
     .conteo-header h1 { font-size: 18px; margin-bottom: 4px; }
-    .conteo-datos { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 13px; }
+    .conteo-datos { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 13px; border: none; border-radius: 0; }
     .conteo-datos td { padding: 6px 8px; border: 1px solid #ccc; }
-    .conteo-tabla { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 13px; }
+    .conteo-tabla { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 13px; border: none; border-radius: 0; }
     .conteo-tabla th, .conteo-tabla td { border: 1px solid #999; padding: 6px 8px; text-align: left;
       overflow-wrap: break-word; white-space: normal; }
-    .conteo-tabla th { background: #eee; color: #111; }
+    .conteo-tabla th { background: #eee; color: #111; position: static; font-size: 13px; }
+    .conteo-tabla tbody tr:hover td { background: none; }
     .conteo-tabla .celda-vacia { min-width: 0; }
     .conteo-tabla col.col-n     { width: 4%; }
     .conteo-tabla col.col-sap   { width: 12%; }
@@ -189,23 +368,25 @@
     .conteo-firmas .firma { text-align: center; width: 40%; }
     .conteo-firmas .linea { border-top: 1px solid #333; margin-bottom: 6px; }
 
-    /* ── KPIs de ubicación ── */
-    .kpi-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-    .kpi-card { border: 1px solid var(--border); border-radius: 10px; padding: 18px; }
-    .kpi-label { font-size: 13px; font-weight: 600; color: var(--txt2); margin-bottom: 10px; }
-    .kpi-value { font-size: 36px; font-weight: 800; line-height: 1; margin-bottom: 8px; }
+    /* ═══ KPIs de ubicación ═══════════════════════════════════ */
+    .kpi-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .kpi-card { border: 1px solid var(--border); border-radius: var(--r-lg); padding: 18px 20px; }
+    .kpi-label { font-size: 13px; font-weight: 600; color: var(--txt); margin-bottom: 12px; }
+    .kpi-value { font-size: 28px; font-weight: 600; line-height: 1; margin-bottom: 10px;
+      font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
     .kpi-card.kpi-green  .kpi-value { color: var(--ok); }
     .kpi-card.kpi-amber  .kpi-value { color: var(--warn); }
     .kpi-card.kpi-red    .kpi-value { color: var(--err); }
-    .kpi-bar { height: 8px; background: var(--bg); border-radius: 99px; overflow: hidden; margin-bottom: 8px; }
-    .kpi-bar-fill { height: 100%; border-radius: 99px; transition: width .3s ease; }
+    .kpi-bar { height: 6px; background: #e9edf2; border-radius: 3px; overflow: hidden; margin-bottom: 10px; }
+    .kpi-bar-fill { height: 100%; border-radius: 3px; transition: width .3s ease; }
     .kpi-card.kpi-green  .kpi-bar-fill { background: var(--ok); }
     .kpi-card.kpi-amber  .kpi-bar-fill { background: var(--warn); }
     .kpi-card.kpi-red    .kpi-bar-fill { background: var(--err); }
-    .kpi-detalle { font-size: 12px; color: var(--txt2); }
-    .kpi-desglose { font-size: 11px; color: var(--txt2); margin-top: 8px; display: flex; flex-direction: column; gap: 2px; }
+    .kpi-detalle { font-size: 13px; color: var(--txt2); }
+    .kpi-desglose { font-size: 12px; color: var(--txt2); margin-top: 8px; display: flex; flex-direction: column; gap: 2px; }
     .kpi-desglose strong { color: var(--txt); }
-    .kpi-meta { font-size: 11px; color: var(--txt2); margin-top: 6px; }
+    .kpi-meta { font-size: 12px; color: var(--txt3); margin-top: 8px; }
+    .kpi-card .btn-sm { margin-top: 12px; }
     @media (max-width: 640px) { .kpi-grid { grid-template-columns: 1fr; } }
 
     @media print {
@@ -241,203 +422,217 @@
       .no-print { display: none !important; }
     }
 
-    /* ── Formularios ── */
-    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-    .form-grid .span2 { grid-column: span 2; }
-    label { display: block; font-size: 12px; font-weight: 600;
-      color: var(--txt2); margin-bottom: 4px; }
-    input[type=text], input[type=number], select, textarea {
-      width: 100%; padding: 8px 12px; border: 1px solid var(--border);
-      border-radius: 7px; font-size: 13px; background: #fff; color: var(--txt);
+    /* ═══ GPC ═════════════════════════════════════════════════ */
+    .gpc-section h3 { font-size: 14px; font-weight: 600; color: var(--txt); margin-bottom: 12px; }
+    .gpc-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--r-lg);
+      padding: 12px 14px; margin-bottom: 8px; }
+    .gpc-card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+    .gpc-id { font-size: 12px; font-weight: 600; color: var(--pri); }
+    .gpc-rek-desc { font-size: 12px; color: var(--txt2); font-weight: 500; }
+    .gpc-estado { font-size: 12px; font-weight: 600; }
+    .gpc-grupo { font-size: 12px; color: var(--txt2); margin-bottom: 8px; }
+    .gpc-grupo .cobertura { margin-left: 8px; font-weight: 600; }
+    .gpc-diagrama { margin-bottom: 10px; }
+    .gpc-diagrama img { width: 100%; max-height: 340px; object-fit: contain; border: 1px solid var(--border);
+      border-radius: var(--r); background: #fff; display: block; }
+    .gpc-destacado { color: var(--pri); font-weight: 600; }
+    /* Códigos REK: etiquetas en tonos suaves, distinguibles entre sí */
+    .rek-badge { padding: 2px 8px; border-radius: var(--r-sm); font-size: 11px; font-weight: 600;
+      white-space: nowrap; font-family: var(--mono); background: #eceff3; color: #3b4654; }
+    .rek-I { background: #efe9f6; color: #57378a; } /* Insurance spare */
+    .rek-T { background: #fbe8e6; color: #962a1f; } /* Major overhaul */
+    .rek-L { background: #fcf0da; color: #7f4d00; } /* Long lead time */
+    .rek-R { background: #e6f3e9; color: #1d6533; } /* Routine */
+    .rek-U { background: #e2f0f5; color: #155a70; } /* Unit shutdown */
+    .rek-P { background: #e2f2ec; color: #135c4c; } /* Preventive */
+    .rek-M { background: #fae7ec; color: #93233f; } /* Minor overhaul */
+    .rek-K { background: #f1e8f5; color: #6a3a83; } /* Capital spare */
+    .rek-Q { background: #e4edf8; color: #1d4d80; } /* Quality assurance */
+    .rek-S { background: #e2f1f0; color: #125e58; } /* Seasonal */
+    .rek-W { background: #f3ebe3; color: #74461d; } /* Wear part */
+    .rek-A, .rek-H, .rek-Y { background: #eceff3; color: #3b4654; } /* Recommended */
+    .rek-Z { background: #eceff3; color: #566271; } /* Special */
+    .rek-other { background: #eceff3; color: #566271; }
+    .gpc-fuente { font-size: 11px; padding: 2px 8px; border-radius: var(--r-sm); font-weight: 600; }
+    .gpc-en  { background: var(--ok-bg); color: var(--ok); }
+    .gpc-no  { background: var(--err-bg); color: var(--err); }
+    .gpc-grid { display: grid; grid-template-columns: auto 1fr; gap: 4px 16px; font-size: 12px; }
+    .gpc-grid dt { color: var(--txt2); }
+    .gpc-grid dd { font-weight: 500; margin: 0; }
+    .gpc-glosario { margin-bottom: 14px; }
+    .gpc-glosario summary {
+      cursor: pointer; font-size: 12px; font-weight: 600; color: var(--pri); padding: 7px 12px;
+      background: var(--card); border: 1px solid var(--border); border-radius: var(--r); user-select: none;
     }
-    input:focus, select:focus, textarea:focus {
-      outline: 2px solid var(--pri); border-color: transparent;
-    }
-    textarea { resize: vertical; min-height: 60px; }
-    .required-mark { color: var(--err); }
+    .gpc-glosario[open] summary { border-radius: var(--r) var(--r) 0 0; }
+    .gpc-glosario-lista { padding: 10px 12px; background: var(--card); border: 1px solid var(--border);
+      border-top: none; border-radius: 0 0 var(--r) var(--r); display: flex; flex-direction: column; gap: 5px; }
+    .gpc-glosario-item { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+    .gpc-glosario-item .rek-badge { min-width: 26px; text-align: center; }
 
-    /* ── Detalle ── */
-    .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
-    .detail-row { padding: 9px 0; border-bottom: 1px solid var(--border); display: contents; }
-    .detail-key { padding: 9px 12px 9px 0; font-size: 12px; font-weight: 600;
-      color: var(--txt2); border-bottom: 1px solid var(--border); }
-    .detail-val { padding: 9px 0; border-bottom: 1px solid var(--border); word-break: break-word; }
-    .detail-img { width: 100%; max-height: 220px; object-fit: contain;
-      border: 1px solid var(--border); border-radius: 8px; margin-bottom: 16px; }
-    .no-img { display: flex; align-items: center; justify-content: center;
-      height: 120px; background: var(--bg); border-radius: 8px;
-      color: var(--txt2); font-size: 12px; margin-bottom: 16px; border: 1px dashed var(--border); }
+    /* ═══ Válvulas HRSG ═══════════════════════════════════════ */
+    .valv-toolbar { display: flex; gap: 10px; align-items: center; margin-bottom: 14px; flex-wrap: wrap; }
+    .valv-toolbar input { flex: 1; min-width: 220px; }
+    .valv-count { font-size: 12px; color: var(--txt2); white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .valv-card-header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+    .valv-make { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: var(--r-sm);
+      background: var(--pri-bg); color: var(--pri); white-space: nowrap; }
+    .valv-kks-count { font-size: 12px; color: var(--txt2); }
+    .valv-kks-list { font-size: 12px; color: var(--txt2); margin-bottom: 10px; word-break: break-word; }
+    .valv-kks-wrap { margin-bottom: 12px; }
+    .valv-sistema { font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: var(--r-sm);
+      background: #eceff3; color: #3b4654; white-space: nowrap; }
+    .valv-operada { color: var(--warn); font-weight: 600; }
+    .valv-sin-cotizar { font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: var(--r-sm);
+      background: var(--err-bg); color: var(--err); white-space: nowrap; }
+    .valv-nota { font-size: 12px; color: var(--txt2); font-style: italic; margin-top: 10px; }
+    .valv-kks-link { color: var(--pri); font-weight: 600; text-decoration: underline; text-decoration-style: dotted; }
+    .valv-kks-link:hover { text-decoration-style: solid; }
+    .valv-kits { margin-top: 10px; }
+    .valv-kits-label { font-size: 12px; font-weight: 600; color: var(--txt2); margin-bottom: 4px; }
+    .valv-kit { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; padding: 4px 10px;
+      border-radius: var(--r); margin: 0 4px 4px 0; }
+    .valv-kit.con-stock { background: var(--ok-bg); color: var(--ok); }
+    .valv-kit.sin-stock { background: var(--err-bg); color: var(--err); }
+    .valv-repuestos { margin-top: 10px; border-top: 1px solid var(--border); padding-top: 8px; }
+    .valv-repuestos summary { cursor: pointer; font-size: 12px; font-weight: 600; color: var(--pri); user-select: none; }
+    .valv-rep-table { width: 100%; font-size: 12px; border-collapse: collapse; margin-top: 8px; border: none; border-radius: 0; }
+    .valv-rep-table td, .valv-rep-table th { padding: 5px 6px; border-bottom: 1px solid var(--border); text-align: left; }
+    .valv-rep-table th { color: var(--txt2); font-weight: 600; font-size: 11px; background: none; position: static; }
+    .valv-rep-table td.num, .valv-rep-table th.num { text-align: right; font-variant-numeric: tabular-nums; }
+    .valv-plano { width: 100%; height: 420px; border: 1px solid var(--border); border-radius: var(--r); }
+    .valv-plano-row > td { padding: 10px; }
 
-    /* ── GPC ── */
-    .gpc-section { margin-top:16px; border-top:2px solid var(--border); padding-top:14px; }
-    .gpc-section h3 { font-size:13px; font-weight:700; color:var(--pri); margin-bottom:10px; }
-    .gpc-card { background:var(--bg); border:1px solid var(--border); border-radius:8px;
-      padding:12px 14px; margin-bottom:8px; }
-    .gpc-card-header { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
-    .rek-badge { padding:3px 10px; border-radius:99px; font-size:11px; font-weight:700;
-      color:#fff; white-space:nowrap; }
-    .rek-I { background:#7c3aed; } /* Insurance spare */
-    .rek-T { background:#dc2626; } /* Major overhaul */
-    .rek-L { background:#d97706; } /* Long lead time */
-    .rek-R { background:#16a34a; } /* Routine */
-    .rek-U { background:#0891b2; } /* Unit shutdown */
-    .rek-P { background:#059669; } /* Preventive */
-    .rek-M { background:#e11d48; } /* Minor overhaul */
-    .rek-K { background:#9333ea; } /* Capital spare */
-    .rek-Q { background:#0284c7; } /* Quality assurance */
-    .rek-S { background:#0d9488; } /* Seasonal */
-    .rek-W { background:#92400e; } /* Wear part */
-    .rek-A, .rek-H, .rek-Y { background:#475569; } /* Recommended */
-    .rek-Z { background:#64748b; } /* Special */
-    .rek-other { background:#64748b; }
-    .gpc-fuente { font-size:11px; padding:2px 8px; border-radius:99px; font-weight:600; }
-    .gpc-en  { background:#dcfce7; color:#166534; }
-    .gpc-no  { background:#fee2e2; color:#991b1b; }
-    .gpc-grid { display:grid; grid-template-columns:1fr 1fr; gap:4px 16px; font-size:12px; }
-    .gpc-grid dt { color:var(--txt2); }
-    .gpc-grid dd { font-weight:500; margin:0; }
+    /* ═══ Actualizar masivo ═══════════════════════════════════ */
+    .masivo-seccion h3 { font-size: 14px; font-weight: 600; margin: 0 0 6px; color: var(--txt); }
+    .masivo-nota { font-size: 13px; color: var(--txt2); margin: 0 0 12px; max-width: 75ch; }
+    .masivo-radio { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; color: var(--txt);
+      font-weight: 400; margin-bottom: 8px; cursor: pointer; }
+    .masivo-radio input { margin-top: 3px; }
+    .masivo-formato { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--r-lg);
+      padding: 12px 14px; margin-bottom: 16px; font-size: 13px; }
+    .masivo-formato .fila-controles { margin-top: 10px; gap: 8px; }
+    #inp-csv-stocksap { margin: 10px 0 12px; }
+    #inp-csv, #inp-csv-masivo { margin-bottom: 14px; }
+    .panel-resumen { font-size: 13px; color: var(--txt2); }
+    #sap-sync-checks { margin: 10px 0; gap: 16px; flex-wrap: wrap; }
+    .tabla-scroll { overflow-x: auto; max-height: 220px; margin-top: 8px; }
+    .tabla-scroll table { font-size: 12px; }
+    .tabla-scroll th, .tabla-scroll td { padding: 5px 8px; }
+    .sap-check { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 400; color: var(--txt); }
+    .diff-num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+    .diff-old { color: var(--err); text-decoration: line-through; }
+    .diff-new { color: var(--ok); font-weight: 600; }
+    .val-old { color: var(--err); }
+    .val-new { color: var(--ok); }
 
-    /* ── Válvulas HRSG ── */
-    .valv-toolbar { display:flex; gap:10px; align-items:center; margin-bottom:14px; flex-wrap:wrap; }
-    .valv-toolbar input { flex:1; min-width:220px; padding:8px 12px; border:1px solid var(--border);
-      border-radius:8px; background:var(--bg); color:var(--txt); font-size:13px; }
-    .valv-count { font-size:12px; color:var(--txt2); white-space:nowrap; }
-    .valv-card-header { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:8px; }
-    .valv-make { font-size:11px; font-weight:700; padding:3px 10px; border-radius:99px;
-      background:var(--pri); color:#fff; white-space:nowrap; }
-    .valv-kks-count { font-size:11px; color:var(--txt2); }
-    .valv-kks-list { font-size:11px; color:var(--txt2); margin-bottom:10px; word-break:break-word; }
-    .valv-kks-wrap { margin-bottom:12px; }
-    .valv-sistema { font-size:10px; font-weight:700; padding:1px 7px; border-radius:99px;
-      background:var(--pri); color:#fff; opacity:.75; white-space:nowrap; }
-    .valv-operada { color:var(--warn); font-weight:600; }
-    .valv-sin-cotizar { font-size:11px; font-weight:700; padding:1px 8px; border-radius:99px;
-      background:#fee2e2; color:#991b1b; white-space:nowrap; }
-    .valv-nota { font-size:12px; color:var(--txt2); font-style:italic; margin-top:10px; }
-
-    /* ── Actualizar masivo: secciones ── */
-    .masivo-seccion h3 { font-size:14px; margin:0 0 8px; color:var(--pri); }
-    .masivo-nota { font-size:12.5px; color:var(--txt2); margin:0 0 10px; }
-    .masivo-radio { display:flex; align-items:flex-start; gap:8px; font-size:13.5px;
-      font-weight:400; margin-bottom:8px; cursor:pointer; }
-    .masivo-radio input { width:auto; margin-top:2px; }
-    .sap-check { display:flex; align-items:center; gap:6px; font-size:13px; font-weight:400; }
-    .sap-check input { width:auto; }
-    .diff-num { font-family:"Cascadia Code","SF Mono",Consolas,monospace; font-variant-numeric:tabular-nums; }
-    .diff-old { color:var(--err); text-decoration:line-through; }
-    .diff-new { color:var(--ok); font-weight:600; }
-    .valv-kks-link { color:var(--pri); font-weight:600; text-decoration:underline; text-decoration-style:dotted; }
-    .valv-kks-link:hover { text-decoration-style:solid; }
-    .valv-kits { margin-top:10px; }
-    .valv-kits-label { font-size:11px; font-weight:600; color:var(--txt2); margin-bottom:4px; }
-    .valv-kit { display:inline-flex; align-items:center; gap:6px; font-size:12px; padding:4px 10px;
-      border-radius:8px; margin:0 4px 4px 0; }
-    .valv-kit.con-stock { background:#dcfce7; color:#166534; }
-    .valv-kit.sin-stock { background:#fee2e2; color:#991b1b; }
-    .valv-repuestos { margin-top:10px; border-top:1px solid var(--border); padding-top:8px; }
-    .valv-repuestos summary { cursor:pointer; font-size:12px; font-weight:600; color:var(--pri); user-select:none; }
-    .valv-rep-table { width:100%; font-size:12px; border-collapse:collapse; margin-top:8px; }
-    .valv-rep-table td, .valv-rep-table th { padding:4px 6px; border-bottom:1px solid var(--border); text-align:left; }
-    .valv-rep-table th { color:var(--txt2); font-weight:600; font-size:11px; }
-    .valv-rep-table td.num, .valv-rep-table th.num { text-align:right; font-variant-numeric:tabular-nums; }
-
-    /* ── Movimientos tabla ── */
+    /* ═══ Movimientos / auditoría ═════════════════════════════ */
     .mov-table td, .mov-table th { font-size: 12px; padding: 7px 10px; }
-    .tipo-E { color: var(--ok); font-weight: 700; }
-    .tipo-S { color: var(--err); font-weight: 700; }
+    .tipo-E { color: var(--ok); font-weight: 600; }
+    .tipo-S { color: var(--err); font-weight: 600; }
 
-    /* ── Toast ── */
-    #toast-wrap { position: fixed; bottom: 24px; right: 24px; z-index: 9999;
+    /* ═══ Avisos ══════════════════════════════════════════════ */
+    #toast-wrap { position: fixed; bottom: 24px; right: 24px; z-index: var(--z-toast);
       display: flex; flex-direction: column; gap: 8px; }
-    .toast { padding: 12px 20px; border-radius: 8px; color: #fff; font-size: 13px;
-      box-shadow: 0 4px 12px rgba(0,0,0,.15); animation: toastIn .2s ease;
-      max-width: 320px; }
-    @keyframes toastIn { from { transform: translateX(20px); opacity: 0; } to { transform: none; opacity: 1; } }
-    .toast.ok   { background: var(--ok); }
-    .toast.err  { background: var(--err); }
-    .toast.warn { background: var(--warn); }
-
-    /* ── Lightbox ── */
-    #lightbox { position:fixed; inset:0; background:rgba(0,0,0,.92); z-index:9999;
-      display:none; align-items:center; justify-content:center; cursor:zoom-out; }
-    #lightbox.open { display:flex; }
-    #lightbox img { max-width:95vw; max-height:95vh; object-fit:contain;
-      border-radius:8px; box-shadow:0 8px 40px rgba(0,0,0,.5); }
-    .zoomable { cursor:zoom-in; }
-
-    /* ── Scanner ── */
-    .btn-scan {
-      background: var(--acc); color: #fff; border: none;
-      border-radius: 0 8px 8px 0; padding: 0 14px; cursor: pointer;
-      display: flex; align-items: center; justify-content: center;
-      transition: opacity .15s; flex-shrink: 0;
+    .toast {
+      padding: 11px 16px 11px 14px; border-radius: var(--r-lg); color: var(--txt); font-size: 13px;
+      background: var(--card); border: 1px solid var(--border); border-left: 4px solid var(--txt2);
+      box-shadow: var(--shadow-pop); animation: toastIn .2s cubic-bezier(.16, 1, .3, 1); max-width: 360px;
     }
-    .btn-scan:hover { opacity: .85; }
+    @keyframes toastIn { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
+    .toast.ok   { border-left-color: var(--ok); }
+    .toast.err  { border-left-color: var(--err); }
+    .toast.warn { border-left-color: #d08a14; }
+
+    /* ═══ Visor de imagen ═════════════════════════════════════ */
+    #lightbox { position: fixed; inset: 0; background: rgba(12, 18, 28, .9); z-index: var(--z-lightbox);
+      display: none; align-items: center; justify-content: center; cursor: zoom-out; }
+    #lightbox.open { display: flex; }
+    #lightbox img { max-width: 95vw; max-height: 95vh; object-fit: contain; border-radius: var(--r-lg); }
+    .zoomable { cursor: zoom-in; }
+
+    /* ═══ Escáner ═════════════════════════════════════════════ */
+    .btn-scan {
+      background: var(--surface-2); color: var(--txt2); border: 1px solid var(--border-2);
+      border-radius: 0 var(--r) var(--r) 0; padding: 0 14px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background-color .15s, color .15s; flex-shrink: 0;
+    }
+    .btn-scan:hover { background: var(--hover); color: var(--pri); }
     .scan-viewport {
-      position: relative; background: #000; border-radius: 8px;
+      position: relative; background: #0c121c; border-radius: var(--r-lg);
       overflow: hidden; aspect-ratio: 4/3; max-height: 60vh;
     }
     .scan-viewport video { width: 100%; height: 100%; object-fit: cover; display: block; }
     .scan-guide-rect {
       position: absolute; left: 8%; right: 8%;
       top: 50%; transform: translateY(-50%); height: 58px;
-      border: 2px solid var(--acc); border-radius: 6px;
-      box-shadow: 0 0 0 9999px rgba(0,0,0,.5);
+      border: 2px solid #ffffff; border-radius: var(--r);
+      box-shadow: 0 0 0 9999px rgba(0, 0, 0, .5);
       pointer-events: none;
     }
     .scan-guide-hint {
       position: absolute; bottom: 10px; left: 0; right: 0;
       text-align: center; color: #fff; font-size: 12px;
-      text-shadow: 0 1px 3px rgba(0,0,0,.9); pointer-events: none;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, .9); pointer-events: none;
     }
+    #ov-scanner .modal-body { padding: 16px; }
+    #scanner-status { text-align: center; margin-top: 12px; font-size: 13px; color: var(--txt2); }
+    #scanner-result { text-align: center; font-size: 15px; font-weight: 600; color: var(--pri); min-height: 22px;
+      font-family: var(--mono); }
 
-    /* ── Loading ── */
+    /* ═══ Carga ═══════════════════════════════════════════════ */
     .loading-overlay {
-      position: fixed; inset: 0; background: rgba(255,255,255,.7);
-      display: none; align-items: center; justify-content: center; z-index: 2000;
+      position: fixed; inset: 0; background: rgba(243, 245, 248, .65);
+      display: none; align-items: center; justify-content: center; z-index: var(--z-loading);
     }
     .loading-overlay.show { display: flex; }
-    .spinner { width: 40px; height: 40px; border: 4px solid var(--border);
-      border-top-color: var(--pri); border-radius: 50%; animation: spin .7s linear infinite; }
+    .spinner { width: 32px; height: 32px; border: 3px solid var(--border);
+      border-top-color: var(--pri); border-radius: 50%; animation: spin .8s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 1.6s !important; } }
 
-    /* ── GPC sin SAP ── */
-    .row-gpc-nc td { background: #fffbf0; }
-    .row-gpc-nc:hover td { background: #fff3e0; }
-    .chip-gpc-nc { background: #fff3e0; border-color: #fb8c00; color: #e65100; font-weight: 700; }
+    /* ═══ GPC sin SAP / duplicados ════════════════════════════ */
+    .row-gpc-nc td { background: #fdf8ee; }
+    .row-gpc-nc:hover td { background: var(--warn-bg); }
+    .chip-gpc-nc { background: var(--warn-bg); color: var(--warn); font-weight: 600; }
+    .chip-misc { background: #f3ebe3; color: #74461d; font-weight: 600; }
+    .row-duplicado td { background: #fdf8ee; }
+    .row-duplicado:hover td { background: var(--warn-bg); }
+    .chip-dup { background: var(--warn-bg); color: var(--warn); font-weight: 600; }
 
-    /* ── Duplicados ── */
-    .row-duplicado td { background: #fef9ec; }
-    .row-duplicado:hover td { background: #fef3c7; }
-    .chip-dup { background: #fef3c7; border-color: #d97706; color: #92400e; font-weight: 700; }
-
-    /* ── Empty state ── */
+    /* ═══ Estado vacío ════════════════════════════════════════ */
     .empty { text-align: center; padding: 48px 24px; color: var(--txt2); }
-    .empty svg { opacity: .3; margin-bottom: 12px; }
+    .empty svg { opacity: .35; margin-bottom: 12px; }
+    .empty p { font-size: 14px; font-weight: 600; color: var(--txt); }
+    .empty p + p { font-size: 13px; font-weight: 400; color: var(--txt2); margin-top: 4px; }
 
     @media (max-width: 640px) {
       /* ── Formularios ── */
       .form-grid { grid-template-columns: 1fr; }
-      .form-grid .span2 { grid-column: span 1; }
+      .form-grid .span2, .form-seccion { grid-column: span 1; }
       .detail-grid { grid-template-columns: 1fr; }
       .detail-key { border-bottom: none; padding-bottom: 2px; }
 
-      /* ── Header ── */
-      header { padding: 0 12px; height: 48px; }
-      header img { height: 30px; margin-right: 6px; }
-      header .logo { font-size: 14px; }
+      /* ── Encabezado ── */
+      header { padding: 0 12px; height: 52px; gap: 10px; }
+      .header-logo { height: 28px; }
+      header .logo { font-size: 14px; padding-left: 10px; }
       header .usr { display: none; }
       #lbl-ultima-act { display: none; }
 
-      /* ── Toolbar ── */
-      .toolbar { padding: 10px 12px; gap: 8px; }
+      /* ── Barra de herramientas ── */
+      .toolbar { padding: 10px 12px; gap: 10px; }
       .search-wrap { flex: 1; min-width: 0; }
+      .toolbar-main .btn-pri { padding: 0 12px; }
       .toolbar .actions { gap: 6px; }
+      .tool-group + .tool-group { padding-left: 0; border-left: none; }
+      .tool-group-label { display: none; }
       .toolbar .actions .btn-sec { font-size: 12px; padding: 7px 10px; }
       .btn-mob-hide { display: none !important; }
 
-      /* ── Stats ── */
-      .stats-bar { padding: 5px 12px; font-size: 11px; gap: 10px; }
+      /* ── Totales ── */
+      .stats-bar { padding: 8px 12px 6px; font-size: 12px; gap: 10px; }
 
       /* ── Tabla: mostrar solo SAP / Material / Cantidad / Acciones ── */
       .table-wrap { padding: 0 12px 16px; }
@@ -458,28 +653,30 @@
       .td-mat span { max-width: 160px; }
       /* Fila completa tappable */
       tbody tr { cursor: pointer; }
-      tbody tr:active td { background: #e8f0fe; }
+      tbody tr:active td { background: var(--pri-bg); }
       /* Ocultar botón Ver en móvil (la fila entera es tappable) */
       .btn-ver-mob { display: none; }
       .action-btns { gap: 6px; }
       .btn-sm { padding: 7px 10px; font-size: 12px; }
 
       /* ── Paginación ── */
-      .pagination button { min-height: 44px; padding: 8px 12px; }
+      .pagination { justify-content: center; flex-wrap: wrap; }
+      .pagination button { min-height: 44px; min-width: 44px; padding: 8px 12px; }
+      .pagination span:last-child { margin-left: 0; width: 100%; text-align: center; }
 
-      /* ── Modales: bottom sheet ── */
+      /* ── Modales: hoja inferior ── */
       .overlay { padding: 0 !important; align-items: flex-end !important; }
       .modal {
-        border-radius: 20px 20px 0 0 !important;
+        border-radius: 12px 12px 0 0 !important;
         width: 100% !important; max-width: 100% !important;
         max-height: 92vh; overflow-y: auto;
       }
       .modal-body { padding: 16px !important; }
-      .modal-footer { padding: 12px 16px !important; }
+      .modal-footer { padding: 12px 16px !important; border-radius: 0; }
 
       /* ── Modal detalle: paneles apilados ── */
       #ov-detalle .modal { max-height: 96vh; }
-      .det-panels { flex-direction: column !important; }
+      .det-panels { flex-direction: column !important; max-height: none; }
       #det-body { border-right: none !important; }
       #det-gpc {
         width: 100% !important; min-width: 0 !important;
@@ -496,61 +693,80 @@
 <!-- ══ LOGIN ══════════════════════════════════════════════════ -->
 <div id="login-screen">
   <div class="login-card">
-    <h1>Almacenes <span style="color:var(--acc)">CTCT</span></h1>
-    <p>Central Térmica de Cogeneración Timbúes</p>
-    <input type="text" id="inp-usuario" placeholder="Nombre completo" maxlength="60" style="margin-bottom:10px">
-    <input type="password" id="inp-password" placeholder="Contraseña (si tenés)" maxlength="30">
-    <div id="lbl-login-error" style="color:var(--err);font-size:13px;min-height:18px;margin-bottom:8px"></div>
-    <button class="btn-pri" style="width:100%" id="btn-entrar" onclick="iniciarSesion()">Entrar</button>
+    <img src="CTCT.jpg" alt="Central Térmica Cogeneración Timbúes" class="login-logo">
+    <h1>Almacenes CTCT</h1>
+    <p>Gestión de inventario de materiales</p>
+    <div class="campo">
+      <label for="inp-usuario">Nombre y apellido</label>
+      <input type="text" id="inp-usuario" maxlength="60" autocomplete="name">
+    </div>
+    <div class="campo">
+      <label for="inp-password">Contraseña <span class="texto-sec">(solo si tiene una asignada)</span></label>
+      <input type="password" id="inp-password" maxlength="30" autocomplete="current-password">
+    </div>
+    <div id="lbl-login-error" class="login-error" role="alert"></div>
+    <button class="btn-pri" id="btn-entrar" onclick="iniciarSesion()">Ingresar</button>
   </div>
 </div>
 
 <!-- ══ APP ════════════════════════════════════════════════════ -->
 <div id="app">
   <header>
-    <img src="CTCT.jpg" alt="CTCT" style="height:38px;border-radius:4px;margin-right:10px;object-fit:contain">
+    <img src="CTCT.jpg" alt="Central Térmica Cogeneración Timbúes" class="header-logo">
     <div class="logo">Almacenes <span>CTCT</span></div>
-    <span id="lbl-ultima-act" style="font-size:11px;opacity:.7;margin-right:8px"></span>
+    <span id="lbl-ultima-act" class="ultima-act"></span>
     <span class="usr" id="lbl-usuario"></span>
-    <button class="logout" onclick="cerrarSesion()">Salir</button>
+    <button class="logout" onclick="cerrarSesion()">Cerrar sesión</button>
   </header>
 
   <div class="toolbar">
-    <div class="toolbar-row">
-      <div class="search-wrap">
-        <input type="text" id="inp-buscar" placeholder="Buscar materiales…" oninput="debounceBuscar()" autocomplete="off" style="border-radius:8px 0 0 8px;border-right:none">
-        <button class="btn-scan" onclick="abrirScanner()" title="Escanear etiqueta SAP con cámara">
-          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+    <div class="toolbar-row toolbar-main">
+      <div class="search-wrap" role="search">
+        <label for="inp-buscar" class="sr-only">Buscar materiales</label>
+        <input type="text" id="inp-buscar" placeholder="Buscar por código SAP, descripción, marca, ubicación…" oninput="debounceBuscar()" autocomplete="off">
+        <button class="btn-scan" onclick="abrirScanner()" title="Escanear etiqueta SAP con la cámara" aria-label="Escanear etiqueta SAP con la cámara">
+          <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
             <circle cx="12" cy="13" r="4"/>
           </svg>
         </button>
       </div>
+      <button class="btn-pri" onclick="abrirAltaMaterial()">Nuevo material</button>
     </div>
     <div class="toolbar-row">
       <div class="actions">
-        <button class="btn-acc" onclick="abrirAltaMaterial()">+ Nuevo</button>
-        <button class="btn-sec" id="btn-filtro-gpc" onclick="toggleFiltroGPC()">⚙ GPC</button>
-        <button class="btn-sec" id="btn-filtro-gpc-nc" onclick="toggleFiltroGPCNoCargado()">📋 Sin SAP</button>
-        <button class="btn-sec" id="btn-filtro-misc-ft" onclick="toggleFiltroMiscFT()" title="Miscelaneo por contrato (Omar)">🔧 Misc. FT</button>
-        <button class="btn-sec btn-mob-hide" onclick="abrirValvulasHRSG()" title="Repuestos de válvulas de calderas HRSG (HP Valves / HJ Valve / KVT / Dongkang), cruzado con Materiales y Stock SAP">🔩 Válvulas HRSG</button>
-        <button class="btn-sec" id="btn-filtro-dup" onclick="toggleFiltroDuplicados()" title="Mostrar materiales con descripción duplicada">⚠ Duplicados</button>
-        <button class="btn-sec btn-mob-hide" onclick="abrirAltaMasiva()">↑ Carga masiva</button>
-        <button class="btn-sec btn-mob-hide" onclick="exportarCSV()">↓ Exportar CSV</button>
-        <button class="btn-sec btn-mob-hide" onclick="abrirActualizarMasivo()">↺ Actualizar masivo</button>
-        <button class="btn-sec admin-only btn-mob-hide" onclick="abrirAuditoria()" style="display:none">Auditoría</button>
-        <button class="btn-sec admin-only btn-mob-hide" id="btn-conteo-fisico" onclick="abrirConteoFisico()" style="display:none" title="Genera una planilla imprimible con materiales al azar (fuente: hoja Stock SAP) para el conteo físico">📝 Conteo físico</button>
-        <button class="btn-sec admin-only btn-mob-hide" id="btn-kpis" onclick="abrirKPIs()" style="display:none" title="KPIs de calidad de ubicación (Plan de Mejora del Maestro de Materiales)">📊 KPIs</button>
+        <div class="tool-group" role="group" aria-label="Filtros">
+          <span class="tool-group-label">Filtros</span>
+          <button class="btn-sec" id="btn-filtro-gpc" onclick="toggleFiltroGPC()" title="Mostrar solo materiales del catálogo GPC">GPC</button>
+          <button class="btn-sec" id="btn-filtro-gpc-nc" onclick="toggleFiltroGPCNoCargado()" title="Mostrar ítems GPC sin número SAP">Sin SAP</button>
+          <button class="btn-sec" id="btn-filtro-misc-ft" onclick="toggleFiltroMiscFT()" title="Misceláneos por contrato (responsable: Omar)">Misc. FT</button>
+          <button class="btn-sec" id="btn-filtro-dup" onclick="toggleFiltroDuplicados()" title="Mostrar materiales con descripción duplicada">Duplicados</button>
+        </div>
+        <div class="tool-group btn-mob-hide" role="group" aria-label="Consultas">
+          <button class="btn-sec" onclick="abrirValvulasHRSG()" title="Repuestos de válvulas de calderas HRSG (HP Valves, HJ Valve, KVT, Dongkang), cruzado con Materiales y Stock SAP">Válvulas HRSG</button>
+        </div>
+        <div class="tool-group btn-mob-hide" role="group" aria-label="Datos">
+          <span class="tool-group-label">Datos</span>
+          <button class="btn-sec" onclick="abrirAltaMasiva()">Carga masiva</button>
+          <button class="btn-sec" onclick="abrirActualizarMasivo()">Actualización masiva</button>
+          <button class="btn-sec" onclick="exportarCSV()">Exportar CSV</button>
+        </div>
+        <div class="tool-group tool-group-end admin-only btn-mob-hide" role="group" aria-label="Administración" style="display:none">
+          <span class="tool-group-label">Administración</span>
+          <button class="btn-sec admin-only" onclick="abrirAuditoria()" style="display:none">Auditoría</button>
+          <button class="btn-sec admin-only" id="btn-conteo-fisico" onclick="abrirConteoFisico()" style="display:none" title="Genera una planilla imprimible con materiales al azar (fuente: hoja Stock SAP) para el conteo físico">Conteo físico</button>
+          <button class="btn-sec admin-only" id="btn-kpis" onclick="abrirKPIs()" style="display:none" title="KPI de calidad de ubicación (Plan de Mejora del Maestro de Materiales)">KPI</button>
+        </div>
       </div>
     </div>
   </div>
 
-  <div class="stats-bar">
+  <div class="stats-bar" aria-live="polite">
     <span id="lbl-total"></span>
     <span id="lbl-filtrados"></span>
   </div>
 
-  <div class="table-wrap">
+  <main class="table-wrap">
     <table>
       <thead>
         <tr id="thead-row">
@@ -563,71 +779,73 @@
           <th class="sortable" onclick="sortarPor('ubicacion_tecnica')">Ubic. técnica<span class="col-resizer" onmousedown="iniciarResizeColumna(event,6)" onclick="event.stopPropagation()"></span></th>
           <th class="sortable" onclick="sortarPor('cantidad')">Cantidad<span class="col-resizer" onmousedown="iniciarResizeColumna(event,7)" onclick="event.stopPropagation()"></span></th>
           <th>Observaciones<span class="col-resizer" onmousedown="iniciarResizeColumna(event,8)" onclick="event.stopPropagation()"></span></th>
-          <th class="sortable" onclick="sortarPor('imagen_url')">Img<span class="col-resizer" onmousedown="iniciarResizeColumna(event,9)" onclick="event.stopPropagation()"></span></th>
+          <th class="sortable" onclick="sortarPor('imagen_url')">Imagen<span class="col-resizer" onmousedown="iniciarResizeColumna(event,9)" onclick="event.stopPropagation()"></span></th>
           <th>Acciones<span class="col-resizer" onmousedown="iniciarResizeColumna(event,10)" onclick="event.stopPropagation()"></span></th>
         </tr>
       </thead>
       <tbody id="tbody"></tbody>
     </table>
     <div id="empty-state" class="empty" style="display:none">
-      <svg width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+      <svg width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" aria-hidden="true">
         <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
       </svg>
       <p>Sin resultados</p>
+      <p>Revise el término de búsqueda o quite los filtros activos.</p>
     </div>
     <div class="pagination" id="pagination"></div>
-  </div>
+  </main>
 </div>
 
 <!-- ══ MODAL: DETALLE ════════════════════════════════════════ -->
 <div class="overlay" id="ov-detalle">
-  <div class="modal" style="max-width:1100px">
+  <div class="modal" role="dialog" aria-labelledby="det-titulo">
     <div class="modal-header">
       <h2 id="det-titulo">Detalle del material</h2>
-      <button class="close" onclick="cerrarOverlay('ov-detalle')">✕</button>
+      <button class="close" onclick="cerrarOverlay('ov-detalle')" aria-label="Cerrar">✕</button>
     </div>
-    <div class="det-panels" style="display:flex;gap:0;max-height:72vh;min-height:0">
-      <div class="modal-body" id="det-body" style="flex:1;min-width:0;border-right:1px solid var(--border);overflow-y:auto"></div>
-      <div id="det-gpc" style="width:420px;min-width:320px;overflow-y:auto;padding:24px"></div>
+    <div class="det-panels">
+      <div class="modal-body" id="det-body"></div>
+      <div id="det-gpc"></div>
     </div>
     <div class="modal-footer">
-      <button class="btn-sec" onclick="abrirMovDesde()">Registrar movimiento</button>
-      <button class="btn-sec admin-only" onclick="abrirEdicionDesde()" id="btn-editar-det">Editar</button>
-      <button class="btn-sec" onclick="abrirMovimientosMat()">Ver movimientos</button>
       <button class="btn-sec" onclick="cerrarOverlay('ov-detalle')">Cerrar</button>
+      <button class="btn-sec" onclick="abrirMovimientosMat()">Ver movimientos</button>
+      <button class="btn-sec admin-only" onclick="abrirEdicionDesde()" id="btn-editar-det">Editar</button>
+      <button class="btn-pri" onclick="abrirMovDesde()">Registrar movimiento</button>
     </div>
   </div>
 </div>
 
 <!-- ══ MODAL: ALTA / EDICIÓN ═════════════════════════════════ -->
 <div class="overlay" id="ov-material">
-  <div class="modal">
+  <div class="modal" role="dialog" aria-labelledby="mat-titulo">
     <div class="modal-header">
       <h2 id="mat-titulo">Nuevo material</h2>
-      <button class="close" onclick="cerrarOverlay('ov-material')">✕</button>
+      <button class="close" onclick="cerrarOverlay('ov-material')" aria-label="Cerrar">✕</button>
     </div>
     <div class="modal-body">
       <form id="form-material" onsubmit="submitMaterial(event)">
         <div class="form-grid">
+          <h3 class="form-seccion">Identificación</h3>
           <div class="span2">
-            <label>Descripción <span class="required-mark">*</span></label>
-            <input type="text" name="material" required maxlength="200">
+            <label for="f-material">Descripción <span class="required-mark">*</span></label>
+            <input type="text" id="f-material" name="material" required maxlength="200">
           </div>
           <div>
-            <label>Código SAP <span class="required-mark">*</span></label>
-            <input type="text" name="codigo_sap" required>
+            <label for="f-codigo-sap">Código SAP <span class="required-mark">*</span></label>
+            <input type="text" id="f-codigo-sap" name="codigo_sap" required>
           </div>
           <div>
-            <label>Código del material</label>
-            <input type="text" name="codigo_material">
+            <label for="f-codigo-material">Código del material</label>
+            <input type="text" id="f-codigo-material" name="codigo_material">
           </div>
           <div>
-            <label>Marca</label>
-            <input type="text" name="marca">
+            <label for="f-marca">Marca</label>
+            <input type="text" id="f-marca" name="marca">
           </div>
           <div>
-            <label>Área</label>
-            <input type="text" name="area" list="lista-areas" autocomplete="off" placeholder="Seleccionar o escribir área nueva">
+            <label for="f-area">Área</label>
+            <input type="text" id="f-area" name="area" list="lista-areas" autocomplete="off" placeholder="Seleccione o escriba un área nueva">
             <datalist id="lista-areas">
               <option value="ACCESORIOS ELECTRICOS">
               <option value="ACCESORIOS I&C">
@@ -646,55 +864,56 @@
               <option value="VARIOS">
             </datalist>
           </div>
+          <h3 class="form-seccion">Almacén y stock</h3>
           <div>
-            <label>Ubicación en almacén</label>
-            <input type="text" name="ubicacion" placeholder="ej: 10BB02-30">
+            <label for="f-ubicacion">Ubicación en almacén</label>
+            <input type="text" id="f-ubicacion" name="ubicacion" placeholder="Ej.: 10BB02-30">
           </div>
           <div>
-            <label>Cantidad en almacén</label>
-            <input type="number" name="cantidad" min="0" value="0">
+            <label for="f-cantidad">Cantidad en almacén</label>
+            <input type="number" id="f-cantidad" name="cantidad" min="0" value="0">
           </div>
           <div>
-            <label>Unidad de despacho</label>
-            <input type="text" name="unidad_despacho">
+            <label for="f-unidad-despacho">Unidad de despacho</label>
+            <input type="text" id="f-unidad-despacho" name="unidad_despacho">
           </div>
           <div>
-            <label>Unidad de compra</label>
-            <input type="text" name="unidad_compra">
+            <label for="f-unidad-compra">Unidad de compra</label>
+            <input type="text" id="f-unidad-compra" name="unidad_compra">
           </div>
           <div>
-            <label>Stock mínimo</label>
-            <input type="number" name="stock_min" step="any" min="0">
+            <label for="f-stock-min">Stock mínimo</label>
+            <input type="number" id="f-stock-min" name="stock_min" step="any" min="0">
           </div>
           <div>
-            <label>Stock máximo</label>
-            <input type="number" name="stock_max" step="any" min="0">
+            <label for="f-stock-max">Stock máximo</label>
+            <input type="number" id="f-stock-max" name="stock_max" step="any" min="0">
           </div>
           <div>
-            <label>Punto de pedido</label>
-            <input type="number" name="pto_pedido" step="any" min="0">
+            <label for="f-pto-pedido">Punto de pedido</label>
+            <input type="number" id="f-pto-pedido" name="pto_pedido" step="any" min="0">
+          </div>
+          <h3 class="form-seccion">Referencias</h3>
+          <div>
+            <label for="f-imputacion">Imputación</label>
+            <input type="text" id="f-imputacion" name="imputacion">
           </div>
           <div>
-            <label>Imputación</label>
-            <input type="text" name="imputacion">
+            <label for="f-ubicacion-tecnica">Ubicación técnica (KKS)</label>
+            <input type="text" id="f-ubicacion-tecnica" name="ubicacion_tecnica">
           </div>
-          <div>
-            <label>Ubicación técnica (KKS)</label>
-            <input type="text" name="ubicacion_tecnica">
-          </div>
+          <h3 class="form-seccion">Imagen y observaciones</h3>
           <div class="span2">
-            <label>Imagen</label>
-            <div id="form-img-preview" style="margin-bottom:8px"></div>
+            <label for="inp-imagen-file">Imagen</label>
+            <div id="form-img-preview" class="mb-8"></div>
             <input type="file" id="inp-imagen-file" accept="image/jpeg,image/png,image/gif,image/webp"
-              style="margin-bottom:6px" onchange="previewNuevaImagen(this)">
-            <small style="color:var(--txt2);display:block;margin-bottom:6px">
-              O pegá la URL de Drive directamente:
-            </small>
-            <input type="text" name="imagen_url" id="inp-imagen-url" placeholder="https://drive.google.com/…">
+              class="mb-8" onchange="previewNuevaImagen(this)">
+            <small class="ayuda">O bien, pegue la URL de la imagen en Google Drive:</small>
+            <input type="text" name="imagen_url" id="inp-imagen-url" placeholder="https://drive.google.com/…" aria-label="URL de la imagen en Google Drive">
           </div>
           <div class="span2">
-            <label>Observaciones</label>
-            <textarea name="observaciones"></textarea>
+            <label for="f-observaciones">Observaciones</label>
+            <textarea id="f-observaciones" name="observaciones"></textarea>
           </div>
         </div>
       </form>
@@ -708,33 +927,33 @@
 
 <!-- ══ MODAL: MOVIMIENTO ══════════════════════════════════════ -->
 <div class="overlay" id="ov-movimiento">
-  <div class="modal" style="max-width:480px">
+  <div class="modal modal-sm" role="dialog" aria-labelledby="mov-h2">
     <div class="modal-header">
-      <h2>Registrar movimiento</h2>
-      <button class="close" onclick="cerrarOverlay('ov-movimiento')">✕</button>
+      <h2 id="mov-h2">Registrar movimiento</h2>
+      <button class="close" onclick="cerrarOverlay('ov-movimiento')" aria-label="Cerrar">✕</button>
     </div>
     <div class="modal-body">
-      <p style="margin-bottom:16px;color:var(--txt2);font-size:13px" id="mov-mat-info"></p>
+      <p class="modal-intro" id="mov-mat-info"></p>
       <form id="form-mov" onsubmit="submitMovimiento(event)">
         <div class="form-grid">
           <div>
-            <label>Tipo <span class="required-mark">*</span></label>
-            <select name="tipo" required>
+            <label for="f-mov-tipo">Tipo <span class="required-mark">*</span></label>
+            <select id="f-mov-tipo" name="tipo" required>
               <option value="E">Entrada (ingreso)</option>
               <option value="S">Salida (egreso)</option>
             </select>
           </div>
           <div>
-            <label>Cantidad <span class="required-mark">*</span></label>
-            <input type="number" name="cantidad" min="0.01" step="any" required>
+            <label for="f-mov-cantidad">Cantidad <span class="required-mark">*</span></label>
+            <input type="number" id="f-mov-cantidad" name="cantidad" min="0.01" step="any" required>
           </div>
           <div class="span2">
-            <label>N° Orden SAP</label>
-            <input type="text" name="nro_orden_sap">
+            <label for="f-mov-orden">N.º de orden SAP</label>
+            <input type="text" id="f-mov-orden" name="nro_orden_sap">
           </div>
           <div class="span2">
-            <label>Observación</label>
-            <textarea name="observacion" style="min-height:50px"></textarea>
+            <label for="f-mov-obs">Observación</label>
+            <textarea id="f-mov-obs" name="observacion"></textarea>
           </div>
         </div>
       </form>
@@ -748,10 +967,10 @@
 
 <!-- ══ MODAL: MOVIMIENTOS DEL MATERIAL ═══════════════════════ -->
 <div class="overlay" id="ov-movs-mat">
-  <div class="modal">
+  <div class="modal" role="dialog" aria-labelledby="movs-titulo">
     <div class="modal-header">
       <h2 id="movs-titulo">Movimientos</h2>
-      <button class="close" onclick="cerrarOverlay('ov-movs-mat')">✕</button>
+      <button class="close" onclick="cerrarOverlay('ov-movs-mat')" aria-label="Cerrar">✕</button>
     </div>
     <div class="modal-body">
       <div class="table-wrap" style="padding:0">
@@ -772,21 +991,21 @@
 
 <!-- ══ MODAL: ALTA MASIVA ════════════════════════════════════ -->
 <div class="overlay" id="ov-masiva">
-  <div class="modal" style="max-width:560px">
+  <div class="modal modal-md" role="dialog" aria-labelledby="masiva-h2">
     <div class="modal-header">
-      <h2>Carga masiva desde CSV</h2>
-      <button class="close" onclick="cerrarOverlay('ov-masiva')">✕</button>
+      <h2 id="masiva-h2">Carga masiva desde CSV</h2>
+      <button class="close" onclick="cerrarOverlay('ov-masiva')" aria-label="Cerrar">✕</button>
     </div>
     <div class="modal-body">
-      <p style="font-size:13px;color:var(--txt2);margin-bottom:14px">
-        El CSV debe tener cabecera. Columnas reconocidas (case-insensitive):
-        <code>codigo_sap</code>, <code>material</code>, <code>codigo_material</code>,
+      <p class="modal-intro">
+        El archivo CSV debe incluir una fila de encabezados. Se reconocen estas columnas, sin distinguir
+        mayúsculas de minúsculas: <code>codigo_sap</code>, <code>material</code>, <code>codigo_material</code>,
         <code>marca</code>, <code>area</code>, <code>ubicacion</code>, <code>cantidad</code>,
-        <code>observaciones</code>, <code>ubicacion_tecnica</code>.
+        <code>observaciones</code> y <code>ubicacion_tecnica</code>.
       </p>
-      <label>Archivo CSV</label>
-      <input type="file" id="inp-csv" accept=".csv,.txt" style="margin-bottom:14px">
-      <div id="csv-preview" style="font-size:12px;color:var(--txt2)"></div>
+      <label for="inp-csv">Archivo CSV</label>
+      <input type="file" id="inp-csv" accept=".csv,.txt">
+      <div id="csv-preview" class="texto-sec"></div>
     </div>
     <div class="modal-footer">
       <button class="btn-sec" onclick="cerrarOverlay('ov-masiva')">Cancelar</button>
@@ -797,70 +1016,69 @@
 
 <!-- ══ MODAL: ACTUALIZACIÓN MASIVA ══════════════════════════ -->
 <div class="overlay" id="ov-actualizar-masivo">
-  <div class="modal" style="max-width:720px">
+  <div class="modal" role="dialog" aria-labelledby="actmas-h2">
     <div class="modal-header">
-      <h2>Actualización masiva de stocks y ubicaciones</h2>
-      <button class="close" onclick="cerrarOverlay('ov-actualizar-masivo')">✕</button>
+      <h2 id="actmas-h2">Actualización masiva de stocks y ubicaciones</h2>
+      <button class="close" onclick="cerrarOverlay('ov-actualizar-masivo')" aria-label="Cerrar">✕</button>
     </div>
     <div class="modal-body">
 
-      <div class="masivo-seccion">
-        <h3>Desde el listado de Stock SAP recién descargado</h3>
-        <p class="masivo-nota">Subí el CSV tal cual lo bajás de SAP (columnas de Material/Código, Ubicación,
-          Libre utilización, etc. — detección automática, igual que la hoja "Stock SAP"). Elegí qué hacer:</p>
+      <section class="masivo-seccion">
+        <h3>Desde el listado de Stock SAP descargado</h3>
+        <p class="masivo-nota">Suba el CSV tal como se descarga de SAP. Las columnas (Material o Código, Ubicación,
+          Libre utilización, etc.) se detectan automáticamente, igual que en la hoja "Stock SAP". Seleccione la operación:</p>
 
         <label class="masivo-radio">
           <input type="radio" name="modo-sap" value="sync" checked onchange="cambiarModoSAP()">
-          <span>Sincronizar <strong>cantidad</strong> y <strong>ubicación</strong> en Materiales — solo las diferencias encontradas</span>
+          <span>Sincronizar <strong>cantidad</strong> y <strong>ubicación</strong> en Materiales (solo las diferencias encontradas)</span>
         </label>
         <label class="masivo-radio">
           <input type="radio" name="modo-sap" value="reemplazar" onchange="cambiarModoSAP()">
           <span>Reemplazar toda la tabla <strong>Stock SAP</strong> con este archivo</span>
         </label>
 
-        <input type="file" id="inp-csv-stocksap" accept=".csv,.txt" style="margin:10px 0 12px"
+        <input type="file" id="inp-csv-stocksap" accept=".csv,.txt" aria-label="Archivo CSV de Stock SAP"
           onchange="parsearCSVStockSAP(this)">
 
         <div id="sap-sync-panel">
-          <div id="sap-sync-resumen" style="font-size:13px;color:var(--txt2)"></div>
-          <div id="sap-sync-checks" style="display:none;margin:10px 0;gap:16px;flex-wrap:wrap"></div>
-          <div id="sap-sync-tabla" style="overflow-x:auto;max-height:220px;margin-top:8px"></div>
-          <button class="btn-pri" id="btn-sync-sap" onclick="submitSyncDesdeSAP()" disabled style="margin-top:12px">Aplicar sincronización</button>
+          <div id="sap-sync-resumen" class="panel-resumen"></div>
+          <div id="sap-sync-checks" style="display:none"></div>
+          <div id="sap-sync-tabla" class="tabla-scroll"></div>
+          <button class="btn-pri mt-12" id="btn-sync-sap" onclick="submitSyncDesdeSAP()" disabled>Aplicar sincronización</button>
         </div>
 
         <div id="sap-reemplazar-panel" style="display:none">
-          <div id="sap-reemplazar-resumen" style="font-size:13px;color:var(--txt2)"></div>
-          <label style="display:flex;align-items:center;gap:6px;margin-top:10px;font-weight:400;font-size:13px">
-            <input type="checkbox" id="chk-confirmar-reemplazo" style="width:auto" onchange="actualizarBotonReemplazo()">
-            Entiendo que esto reemplaza TODO el contenido actual de la hoja "Stock SAP"
+          <div id="sap-reemplazar-resumen" class="panel-resumen"></div>
+          <label class="check mt-10">
+            <input type="checkbox" id="chk-confirmar-reemplazo" onchange="actualizarBotonReemplazo()">
+            Entiendo que esta acción reemplaza TODO el contenido actual de la hoja "Stock SAP".
           </label>
-          <button class="btn-acc" id="btn-reemplazar-sap" onclick="submitReemplazarStockSAP()" disabled style="margin-top:10px">Reemplazar tabla Stock SAP</button>
+          <button class="btn-danger mt-10" id="btn-reemplazar-sap" onclick="submitReemplazarStockSAP()" disabled>Reemplazar tabla Stock SAP</button>
         </div>
-      </div>
+      </section>
 
-      <hr style="margin:22px 0;border:none;border-top:1px solid var(--border)">
+      <hr class="separador">
 
-      <div class="masivo-seccion">
-        <h3>Desde un CSV ya formateado</h3>
-        <div style="background:var(--bg);border-radius:8px;padding:12px;margin-bottom:16px;font-size:13px">
-          <strong>Formato del CSV:</strong> debe tener cabecera con <code>Codigo_SAP</code> y al menos uno de:<br>
-          <code>Cantidad_en_almacen</code> &nbsp;·&nbsp; <code>Ubicacion_en_almacen</code> &nbsp;·&nbsp;
-          <code>Stock_MIN</code> &nbsp;·&nbsp; <code>Stock_MAX</code> &nbsp;·&nbsp;
-          <code>Area</code> &nbsp;·&nbsp; <code>Observaciones</code><br>
-          <span style="color:var(--txt2)">Solo se actualizan los campos presentes en el CSV.</span>
-          <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
-            <button class="btn-sec btn-sm" onclick="descargarTemplate('stocks')">↓ Template stocks</button>
-            <button class="btn-sec btn-sm" onclick="descargarTemplate('ubicaciones')">↓ Template ubicaciones</button>
-            <button class="btn-sec btn-sm" onclick="descargarTemplate('completo')">↓ Template completo</button>
+      <section class="masivo-seccion">
+        <h3>Desde un CSV con formato propio</h3>
+        <div class="masivo-formato">
+          <strong>Formato del CSV:</strong> debe incluir la columna <code>Codigo_SAP</code> y al menos una de las siguientes:
+          <code>Cantidad_en_almacen</code>, <code>Ubicacion_en_almacen</code>, <code>Stock_MIN</code>,
+          <code>Stock_MAX</code>, <code>Area</code> u <code>Observaciones</code>.<br>
+          <span class="texto-sec">Solo se actualizan los campos presentes en el archivo.</span>
+          <div class="fila-controles">
+            <button class="btn-sec btn-sm" onclick="descargarTemplate('stocks')">Plantilla de stocks</button>
+            <button class="btn-sec btn-sm" onclick="descargarTemplate('ubicaciones')">Plantilla de ubicaciones</button>
+            <button class="btn-sec btn-sm" onclick="descargarTemplate('completo')">Plantilla completa</button>
           </div>
         </div>
-        <label>Archivo CSV</label>
-        <input type="file" id="inp-csv-masivo" accept=".csv,.txt" style="margin-bottom:14px"
+        <label for="inp-csv-masivo">Archivo CSV</label>
+        <input type="file" id="inp-csv-masivo" accept=".csv,.txt"
           onchange="parsearCSVMasivo(this)">
-        <div id="preview-masivo" style="font-size:13px;color:var(--txt2)"></div>
-        <div id="tabla-preview-masivo" style="overflow-x:auto;max-height:200px;margin-top:8px"></div>
-        <button class="btn-pri" id="btn-confirmar-masivo" onclick="submitActualizarMasivo()" disabled style="margin-top:12px">Actualizar</button>
-      </div>
+        <div id="preview-masivo" class="panel-resumen"></div>
+        <div id="tabla-preview-masivo" class="tabla-scroll"></div>
+        <button class="btn-pri mt-12" id="btn-confirmar-masivo" onclick="submitActualizarMasivo()" disabled>Actualizar</button>
+      </section>
 
     </div>
     <div class="modal-footer">
@@ -871,10 +1089,10 @@
 
 <!-- ══ MODAL: AUDITORÍA ══════════════════════════════════════ -->
 <div class="overlay" id="ov-auditoria">
-  <div class="modal">
+  <div class="modal" role="dialog" aria-labelledby="aud-h2">
     <div class="modal-header">
-      <h2>Log de auditoría</h2>
-      <button class="close" onclick="cerrarOverlay('ov-auditoria')">✕</button>
+      <h2 id="aud-h2">Registro de auditoría</h2>
+      <button class="close" onclick="cerrarOverlay('ov-auditoria')" aria-label="Cerrar">✕</button>
     </div>
     <div class="modal-body">
       <div class="table-wrap" style="padding:0">
@@ -895,20 +1113,21 @@
 
 <!-- ══ MODAL: VÁLVULAS HRSG ══════════════════════════════════ -->
 <div class="overlay" id="ov-valvulas-hrsg">
-  <div class="modal" style="max-width:800px">
+  <div class="modal modal-lg" role="dialog" aria-labelledby="valv-h2">
     <div class="modal-header">
-      <h2>Repuestos válvulas HRSG</h2>
-      <button class="close" onclick="cerrarOverlay('ov-valvulas-hrsg')">✕</button>
+      <h2 id="valv-h2">Repuestos de válvulas HRSG</h2>
+      <button class="close" onclick="cerrarOverlay('ov-valvulas-hrsg')" aria-label="Cerrar">✕</button>
     </div>
     <div class="modal-body">
-      <p style="font-size:12.5px;color:var(--txt2);margin:-4px 0 14px">
-        Catálogo de válvulas de las calderas HRSG. Las cotizadas (HP Valves, HJ Valve, KVT, Dongkang — cotización COP007802)
-        muestran repuestos ofertados y kits en almacén, cruzado en vivo contra Materiales y Stock SAP por referencia.
-        Las marcadas <span class="valv-sin-cotizar" style="vertical-align:1px">Sin cotización</span> (Flowserve, Pentair, Schroedahl y otras)
+      <p class="modal-intro">
+        Catálogo de válvulas de las calderas HRSG. Las válvulas cotizadas (HP Valves, HJ Valve, KVT y Dongkang, cotización COP007802)
+        muestran los repuestos ofertados y los kits en almacén, cruzados en línea contra Materiales y Stock SAP por referencia.
+        Las marcadas <span class="valv-sin-cotizar">Sin cotización</span> (Flowserve, Pentair, Schroedahl y otras)
         muestran solo los datos del listado técnico.
       </p>
       <div class="valv-toolbar">
-        <input id="valv-filtro" type="text" placeholder="Buscar por marca, tamaño, tipo, referencia o KKS..." oninput="filtrarValvulasHRSG()">
+        <label for="valv-filtro" class="sr-only">Buscar válvulas</label>
+        <input id="valv-filtro" type="text" placeholder="Buscar por marca, tamaño, tipo, referencia o KKS…" oninput="filtrarValvulasHRSG()">
         <span class="valv-count" id="valv-count"></span>
       </div>
       <div id="valv-cards"></div>
@@ -921,24 +1140,24 @@
 
 <!-- ══ MODAL: CONTEO FÍSICO ══════════════════════════════════ -->
 <div class="overlay" id="ov-conteo-fisico">
-  <div class="modal" style="max-width:900px">
+  <div class="modal modal-xl" role="dialog" aria-labelledby="conteo-h2">
     <div class="modal-header no-print">
-      <h2>Conteo físico</h2>
-      <button class="close" onclick="cerrarOverlay('ov-conteo-fisico')">✕</button>
+      <h2 id="conteo-h2">Conteo físico</h2>
+      <button class="close" onclick="cerrarOverlay('ov-conteo-fisico')" aria-label="Cerrar">✕</button>
     </div>
     <div class="modal-body">
       <div class="conteo-controles no-print">
         <label for="inp-cant-conteo">Cantidad de materiales a auditar (mínimo 5)</label>
-        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-          <input type="number" id="inp-cant-conteo" min="5" value="10" style="width:100px">
+        <div class="fila-controles">
+          <input type="number" id="inp-cant-conteo" min="5" value="10">
           <button class="btn-pri" onclick="generarConteoFisico()">Generar al azar</button>
         </div>
-        <label style="display:flex;align-items:center;gap:6px;margin-top:10px;font-weight:400">
-          <input type="checkbox" id="chk-conteo-con-stock" style="width:auto">
+        <label class="check mt-10">
+          <input type="checkbox" id="chk-conteo-con-stock">
           Solo materiales con cantidad en sistema mayor a 0
         </label>
-        <label style="display:flex;align-items:center;gap:6px;margin-top:6px;font-weight:400">
-          <input type="checkbox" id="chk-conteo-sin-ubicacion" style="width:auto">
+        <label class="check mt-6">
+          <input type="checkbox" id="chk-conteo-sin-ubicacion">
           Solo materiales sin ubicación o con ubicación no válida
         </label>
       </div>
@@ -946,59 +1165,59 @@
     </div>
     <div class="modal-footer no-print">
       <button class="btn-sec" onclick="cerrarOverlay('ov-conteo-fisico')">Cerrar</button>
-      <button class="btn-pri" id="btn-imprimir-conteo" onclick="window.print()" disabled>Imprimir / Guardar PDF</button>
+      <button class="btn-pri" id="btn-imprimir-conteo" onclick="window.print()" disabled>Imprimir o guardar PDF</button>
     </div>
   </div>
 </div>
 
 <!-- ══ MODAL: KPIs UBICACIÓN ═════════════════════════════════ -->
 <div class="overlay" id="ov-kpis">
-  <div class="modal" style="max-width:960px">
+  <div class="modal modal-xxl" role="dialog" aria-labelledby="kpi-h2">
     <div class="modal-header">
-      <h2>KPIs del Plan de Mejora del Maestro de Materiales (ID 1 a ID 4)</h2>
-      <button class="close" onclick="cerrarOverlay('ov-kpis')">✕</button>
+      <h2 id="kpi-h2">KPI del Plan de Mejora del Maestro de Materiales (ID 1 a 4)</h2>
+      <button class="close" onclick="cerrarOverlay('ov-kpis')" aria-label="Cerrar">✕</button>
     </div>
     <div class="modal-body">
-      <p style="font-size:12px;color:var(--txt2);margin-bottom:16px">
-        Calculado en vivo sobre la hoja "Stock SAP" (todo material con número SAP asignado, sin filtrar por
-        Centro/Almacén). El desglose del KPI 1 y los KPI 3/4 usan una clasificación aproximada por texto — no
-        son un match exacto con la planilla de detalle que arma Lucas a mano.
+      <p class="modal-intro">
+        Se calcula en línea sobre la hoja "Stock SAP" (todo material con número SAP asignado, sin filtrar por
+        centro ni almacén). El desglose del KPI 1 y los KPI 3 y 4 usan una clasificación aproximada por texto, por lo que
+        no coinciden exactamente con la planilla de detalle que elabora Lucas en forma manual.
       </p>
       <div class="kpi-grid">
         <div class="kpi-card" id="kpi-card-1">
-          <div class="kpi-label">KPI 1 — % de materiales con ubicación válida</div>
-          <div class="kpi-value" id="kpi1-valor">—</div>
+          <div class="kpi-label">KPI 1. Materiales con ubicación válida</div>
+          <div class="kpi-value" id="kpi1-valor">-</div>
           <div class="kpi-bar"><div class="kpi-bar-fill" id="kpi1-bar"></div></div>
-          <div class="kpi-detalle" id="kpi1-detalle">—</div>
+          <div class="kpi-detalle" id="kpi1-detalle">-</div>
           <div class="kpi-desglose" id="kpi1-desglose"></div>
-          <div class="kpi-meta">Meta: 95% · zonas oficiales: 10, 20, 30, 41-49, 50</div>
+          <div class="kpi-meta">Meta: 95%. Zonas oficiales: 10, 20, 30, 41 a 49 y 50.</div>
         </div>
         <div class="kpi-card" id="kpi-card-2">
-          <div class="kpi-label">KPI 2 — Materiales con stock y sin ubicación válida</div>
-          <div class="kpi-value" id="kpi2-valor">—</div>
-          <div class="kpi-detalle" id="kpi2-detalle">—</div>
-          <div class="kpi-meta">Meta: 0 materiales</div>
-          <button class="btn-sec btn-sm" style="margin-top:10px" onclick="exportarKPI2CSV()">↓ Descargar listado</button>
+          <div class="kpi-label">KPI 2. Materiales con stock y sin ubicación válida</div>
+          <div class="kpi-value" id="kpi2-valor">-</div>
+          <div class="kpi-detalle" id="kpi2-detalle">-</div>
+          <div class="kpi-meta">Meta: 0 materiales.</div>
+          <button class="btn-sec btn-sm" onclick="exportarKPI2CSV()">Descargar listado</button>
         </div>
         <div class="kpi-card" id="kpi-card-3">
-          <div class="kpi-label">KPI 3 — Grupos duplicados con stock mixto</div>
-          <div class="kpi-value" id="kpi3-valor">—</div>
-          <div class="kpi-detalle" id="kpi3-detalle">—</div>
-          <div class="kpi-meta">Meta: 0 grupos sin consolidar</div>
-          <button class="btn-sec btn-sm" style="margin-top:10px" onclick="exportarKPI3CSV()">↓ Descargar listado</button>
+          <div class="kpi-label">KPI 3. Grupos duplicados con stock mixto</div>
+          <div class="kpi-value" id="kpi3-valor">-</div>
+          <div class="kpi-detalle" id="kpi3-detalle">-</div>
+          <div class="kpi-meta">Meta: 0 grupos sin consolidar.</div>
+          <button class="btn-sec btn-sm" onclick="exportarKPI3CSV()">Descargar listado</button>
         </div>
         <div class="kpi-card" id="kpi-card-4">
-          <div class="kpi-label">KPI 4 — Descripciones duplicadas sin consolidar</div>
-          <div class="kpi-value" id="kpi4-valor">—</div>
-          <div class="kpi-detalle" id="kpi4-detalle">—</div>
-          <div class="kpi-meta">Meta: 0 grupos sin consolidar</div>
-          <button class="btn-sec btn-sm" style="margin-top:10px" onclick="exportarKPI4CSV()">↓ Descargar listado</button>
+          <div class="kpi-label">KPI 4. Descripciones duplicadas sin consolidar</div>
+          <div class="kpi-value" id="kpi4-valor">-</div>
+          <div class="kpi-detalle" id="kpi4-detalle">-</div>
+          <div class="kpi-meta">Meta: 0 grupos sin consolidar.</div>
+          <button class="btn-sec btn-sm" onclick="exportarKPI4CSV()">Descargar listado</button>
         </div>
       </div>
-      <p style="font-size:11px;color:var(--txt2);margin-top:18px">
-        Formato de ubicación válido: prefijo de zona oficial (2 dígitos) + dos letras + dos dígitos, guion,
-        dos o tres dígitos (ej. 10BB02-30 o 41AA02-140). Solo se considera stock de libre utilización (campo "Libre utilización"
-        de SAP). KPI 3/4 agrupan por descripción normalizada y excluyen materiales marcados "NO UTILIZAR".
+      <p class="modal-nota">
+        Formato de ubicación válido: prefijo de zona oficial (2 dígitos), dos letras, dos dígitos, guion y
+        dos o tres dígitos (por ejemplo, 10BB02-30 o 41AA02-140). Solo se considera el stock de libre utilización (campo
+        "Libre utilización" de SAP). Los KPI 3 y 4 agrupan por descripción normalizada y excluyen los materiales marcados "NO UTILIZAR".
       </p>
     </div>
     <div class="modal-footer">
@@ -1009,21 +1228,19 @@
 
 <!-- ══ MODAL: SCANNER ════════════════════════════════════════ -->
 <div class="overlay" id="ov-scanner">
-  <div class="modal" style="max-width:420px">
+  <div class="modal modal-xs" role="dialog" aria-labelledby="scan-h2">
     <div class="modal-header">
-      <h2>Leer número SAP</h2>
-      <button class="close" onclick="cerrarScanner()">✕</button>
+      <h2 id="scan-h2">Leer número SAP</h2>
+      <button class="close" onclick="cerrarScanner()" aria-label="Cerrar">✕</button>
     </div>
-    <div class="modal-body" style="padding:16px">
+    <div class="modal-body">
       <div class="scan-viewport">
         <video id="scanner-video" playsinline muted autoplay></video>
         <div class="scan-guide-rect"></div>
-        <p class="scan-guide-hint">Centrá el número SAP en el recuadro</p>
+        <p class="scan-guide-hint">Centre el número SAP dentro del recuadro</p>
       </div>
-      <p id="scanner-status" style="text-align:center;margin-top:12px;font-size:13px;color:var(--txt2)">
-        Iniciando cámara…
-      </p>
-      <p id="scanner-result" style="text-align:center;font-size:15px;font-weight:700;color:var(--pri);min-height:22px"></p>
+      <p id="scanner-status">Iniciando cámara…</p>
+      <p id="scanner-result"></p>
     </div>
     <div class="modal-footer">
       <button class="btn-sec" onclick="cerrarScanner()">Cancelar</button>
@@ -1035,12 +1252,12 @@
 
 <!-- ══ LIGHTBOX ══════════════════════════════════════════════ -->
 <div id="lightbox" onclick="cerrarLightbox()">
-  <img id="lightbox-img" src="" alt="zoom">
+  <img id="lightbox-img" src="" alt="Imagen ampliada">
 </div>
 
 <!-- ══ LOADING / TOAST ═══════════════════════════════════════ -->
-<div class="loading-overlay" id="loading"><div class="spinner"></div></div>
-<div id="toast-wrap"></div>
+<div class="loading-overlay" id="loading" role="status" aria-label="Cargando"><div class="spinner"></div></div>
+<div id="toast-wrap" aria-live="polite"></div>
 
 <script>
 // ═══════════════════════════════════════════════════════════
@@ -1106,7 +1323,7 @@ async function iniciarSesion() {
   const errEl = document.getElementById('lbl-login-error');
   const btn   = document.getElementById('btn-entrar');
 
-  if (!usr) { errEl.textContent = 'Ingresá tu nombre'; return; }
+  if (!usr) { errEl.textContent = 'Ingrese su nombre y apellido.'; return; }
   errEl.textContent = '';
   btn.disabled = true;
   btn.textContent = 'Verificando…';
@@ -1125,7 +1342,7 @@ async function iniciarSesion() {
     S.esAdmin = res.data.esAdmin || false;
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('app').style.display = 'block';
-    document.getElementById('lbl-usuario').textContent = usr + (S.esAdmin ? ' (Admin)' : '');
+    document.getElementById('lbl-usuario').textContent = usr + (S.esAdmin ? ' (administrador)' : '');
     document.querySelectorAll('.admin-only').forEach(el => {
       el.style.display = S.esAdmin ? '' : 'none';
     });
@@ -1353,24 +1570,24 @@ function renderTabla() {
   tbody.innerHTML = pag.map(m => {
     const cant = Number(m.cantidad) || 0;
     const cantClass = cant === 0 ? 'zero' : (m.stock_min && cant <= Number(m.stock_min) ? 'low' : '');
-    const tieneImg = m.imagen_url ? '✓' : '—';
-    const imgClass = m.imagen_url ? 'style="color:var(--ok);font-weight:700"' : 'style="color:var(--txt2)"';
+    const tieneImg = m.imagen_url ? 'Sí' : '-';
+    const imgClass = m.imagen_url ? 'class="img-si"' : 'class="img-no"';
     const matKey   = m.codigo_sap || m.id;
     const esNC     = m.es_gpc_no_cargado;
     const esDup    = m._duplicado;
     const sapCell  = esNC
-      ? `<span class="chip chip-gpc-nc">Sin SAP</span> <small style="color:var(--txt2)">${esc(m.wb_item_id||'')}</small>`
-        + (m.es_misc_ft ? ' <span class="chip" style="background:#fff7ed;border-color:#92400e;color:#92400e;font-weight:700">MISC</span>' : '')
+      ? `<span class="chip chip-gpc-nc">Sin SAP</span> <small class="texto-sec">${esc(m.wb_item_id||'')}</small>`
+        + (m.es_misc_ft ? ' <span class="chip chip-misc">MISC</span>' : '')
       : `<code>${esc(m.codigo_sap)}</code>`;
     const dupChip = (esDup && S.filtroDuplicados) ? ' <span class="chip chip-dup">DUP</span>' : '';
     return `<tr class="${esNC ? 'row-gpc-nc' : ''} ${esDup && S.filtroDuplicados ? 'row-duplicado' : ''}" onclick="abrirDetalle('${esc(matKey)}')">
       <td>${sapCell}</td>
       <td class="td-mat"><span title="${esc(m.material)}">${esc(m.material)}</span>${dupChip}</td>
-      <td>${esc(m.codigo_material || '—')}</td>
-      <td>${esc(m.marca || '—')}</td>
-      <td><span class="chip">${esc(m.area || '—')}</span></td>
-      <td>${esc(m.ubicacion || '—')}</td>
-      <td>${esc(m.ubicacion_tecnica || '—')}</td>
+      <td>${esc(m.codigo_material || '-')}</td>
+      <td>${esc(m.marca || '-')}</td>
+      <td>${m.area ? '<span class="chip">' + esc(m.area) + '</span>' : '<span class="vacio">-</span>'}</td>
+      <td>${esc(m.ubicacion || '-')}</td>
+      <td>${esc(m.ubicacion_tecnica || '-')}</td>
       <td><span class="cant ${cantClass}">${cant}</span></td>
       <td class="td-mat"><span title="${esc(m.observaciones || '')}">${marcarKKSObservaciones(m.observaciones)}</span></td>
       <td ${imgClass}>${tieneImg}</td>
@@ -1378,7 +1595,7 @@ function renderTabla() {
         <div class="action-btns">
           <button class="btn-sec btn-sm btn-ver-mob" onclick="event.stopPropagation();abrirDetalle('${esc(matKey)}')">Ver</button>
           ${!esNC && S.esAdmin ? `<button class="btn-sec btn-sm admin-only" onclick="event.stopPropagation();abrirEdicion('${esc(m.codigo_sap)}')">Editar</button>` : ''}
-          ${!esNC ? `<button class="btn-acc btn-sm" onclick="event.stopPropagation();abrirMovimiento('${esc(m.codigo_sap)}')">Mov.</button>` : ''}
+          ${!esNC ? `<button class="btn-sec btn-sm" onclick="event.stopPropagation();abrirMovimiento('${esc(m.codigo_sap)}')" title="Registrar movimiento">Mov.</button>` : ''}
         </div>
       </td>
     </tr>`;
@@ -1419,11 +1636,11 @@ function irPagina(n) {
 function actualizarStats() {
   const nDup = S.materiales.filter(function(m) { return m._duplicado; }).length;
   document.getElementById('lbl-total').innerHTML =
-    `Total en base: <span class="badge">${S.materiales.length}</span>`
-    + (nDup ? ` — <span class="badge warn" title="Materiales con descripción duplicada — usar filtro ⚠ Duplicados">${nDup} duplicados</span>` : '');
+    `Materiales en base: <span class="badge">${S.materiales.length}</span>`
+    + (nDup ? ` <span class="badge warn" title="Materiales con descripción duplicada. Use el filtro Duplicados para verlos.">${nDup} duplicados</span>` : '');
   if (S.filtrados.length !== S.materiales.length) {
     document.getElementById('lbl-filtrados').innerHTML =
-      `Mostrando: <span class="badge warn">${S.filtrados.length}</span>`;
+      `Resultados del filtro: <span class="badge">${S.filtrados.length}</span>`;
   } else {
     document.getElementById('lbl-filtrados').innerHTML = '';
   }
@@ -1457,30 +1674,30 @@ function renderGPC(items) {
   const cards = items.map(function(g) {
     const enAlmacen = g.fuente.includes('no') === false;
     const fuenteLabel = enAlmacen
-      ? '<span class="gpc-fuente gpc-en">✓ En almacén</span>'
-      : '<span class="gpc-fuente gpc-no">⚠ Stock 0 — Reponer</span>';
+      ? '<span class="gpc-fuente gpc-en">En almacén</span>'
+      : '<span class="gpc-fuente gpc-no">Stock 0: reponer</span>';
 
-    const estadoColor = g.estado.includes('OK') ? '#16a34a'
-      : g.estado.includes('Parcial') ? '#d97706' : g.estado.includes('tico') ? '#dc2626' : '#64748b';
+    const estadoColor = g.estado.includes('OK') ? 'var(--ok)'
+      : g.estado.includes('Parcial') ? 'var(--warn)' : g.estado.includes('tico') ? 'var(--err)' : 'var(--txt2)';
 
     return '<div class="gpc-card">'
       + '<div class="gpc-card-header">'
-      + (g.wb_item_id ? '<code style="font-size:12px;font-weight:700;color:var(--pri)">' + esc(g.wb_item_id) + '</code>' : '')
+      + (g.wb_item_id ? '<code class="gpc-id">' + esc(g.wb_item_id) + '</code>' : '')
       + '<span class="rek-badge ' + rekClass(g.rek) + '">' + esc(g.rek) + '</span>'
       + (g.rek_desc || REK_LABELS[g.rek]
-          ? '<span style="font-size:12px;color:var(--txt2);font-weight:500">' + esc(g.rek_desc || REK_LABELS[g.rek]) + '</span>'
+          ? '<span class="gpc-rek-desc">' + esc(g.rek_desc || REK_LABELS[g.rek]) + '</span>'
           : '')
       + fuenteLabel
-      + (g.estado ? '<span style="font-size:12px;font-weight:600;color:' + estadoColor + '">' + esc(g.estado) + '</span>' : '')
+      + (g.estado ? '<span class="gpc-estado" style="color:' + estadoColor + '">' + esc(g.estado) + '</span>' : '')
       + '</div>'
-      + (g.grupo || g.subsistema_es ? '<div style="font-size:12px;color:var(--txt2);margin-bottom:8px">'
+      + (g.grupo || g.subsistema_es ? '<div class="gpc-grupo">'
           + (g.grupo ? '<strong>' + esc(g.grupo) + '</strong>' : '')
-          + (g.subsistema_es ? ' — ' + esc(g.subsistema_es) : '')
-          + (g.cobertura ? ' <span style="margin-left:8px;font-weight:600">Cobertura: ' + esc(g.cobertura) + '</span>' : '')
+          + (g.subsistema_es ? (g.grupo ? ', ' : '') + esc(g.subsistema_es) : '')
+          + (g.cobertura ? ' <span class="cobertura">Cobertura: ' + esc(g.cobertura) + '</span>' : '')
           + '</div>' : '')
       + (g.imagen_gpc
-          ? '<div id="gpc-img-' + esc(g.imagen_gpc) + '" style="margin-bottom:10px">'
-            + '<span style="font-size:12px;color:var(--txt2)">Cargando diagrama...</span>'
+          ? '<div id="gpc-img-' + esc(g.imagen_gpc) + '" class="gpc-diagrama">'
+            + '<span class="texto-sec">Cargando diagrama…</span>'
             + '</div>'
           : '')
       + '<dl class="gpc-grid">'
@@ -1493,9 +1710,9 @@ function renderGPC(items) {
       + (g.pag_spl       ? '<dt>Pág. SPL (Tab 2)</dt><dd>' + esc(g.pag_spl) + '</dd>' : '')
       + (g.pag_diagrama  ? '<dt>Pág. Diagrama (Tab 4)</dt><dd>' + esc(g.pag_diagrama) + '</dd>' : '')
       + (g.misc_flame_tube
-          ? '<dt style="color:var(--acc);font-weight:700">Misc. Flame Tube</dt>'
+          ? '<dt class="gpc-destacado">Misc. Flame Tube</dt>'
             + '<dd><strong>' + esc(g.misc_flame_tube.codigo_sap) + '</strong>'
-            + (g.misc_flame_tube.descripcion ? ' — ' + esc(g.misc_flame_tube.descripcion) : '')
+            + (g.misc_flame_tube.descripcion ? ': ' + esc(g.misc_flame_tube.descripcion) : '')
             + '</dd>'
           : '')
       + (g.caracteristicas ? '<dt>Características</dt><dd>' + esc(g.caracteristicas) + '</dd>' : '')
@@ -1503,23 +1720,18 @@ function renderGPC(items) {
       + '</div>';
   }).join('');
 
-  const glosario = '<details style="margin-bottom:14px">'
-    + '<summary style="cursor:pointer;font-size:12px;font-weight:600;color:var(--pri);'
-    + 'padding:7px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;'
-    + 'list-style:none;display:flex;align-items:center;gap:6px;user-select:none">'
-    + '<span style="font-size:14px">ℹ</span> Glosario de códigos REK'
-    + '</summary>'
-    + '<div style="padding:10px 12px;background:var(--bg);border:1px solid var(--border);'
-    + 'border-top:none;border-radius:0 0 8px 8px;display:flex;flex-direction:column;gap:5px">'
+  const glosario = '<details class="gpc-glosario">'
+    + '<summary>Glosario de códigos REK</summary>'
+    + '<div class="gpc-glosario-lista">'
     + Object.entries(REK_LABELS).map(function(kv) {
-        return '<div style="display:flex;align-items:center;gap:8px">'
-          + '<span class="rek-badge rek-' + kv[0] + '" style="min-width:22px;text-align:center">' + kv[0] + '</span>'
-          + '<span style="font-size:12px;color:var(--txt)">' + esc(kv[1]) + '</span>'
+        return '<div class="gpc-glosario-item">'
+          + '<span class="rek-badge rek-' + kv[0] + '">' + kv[0] + '</span>'
+          + '<span>' + esc(kv[1]) + '</span>'
           + '</div>';
       }).join('')
     + '</div></details>';
 
-  const html = '<div class="gpc-section"><h3>Partes GPC — Turbina de Gas</h3>' + glosario + cards + '</div>';
+  const html = '<div class="gpc-section"><h3>Partes GPC de la turbina de gas</h3>' + glosario + cards + '</div>';
 
   // Cargar imágenes en segundo plano
   const wbIds = [...new Set(items.filter(function(g) { return g.imagen_gpc; }).map(function(g) { return g.imagen_gpc; }))];
@@ -1530,7 +1742,7 @@ function renderGPC(items) {
       if (res.ok && res.data && res.data.b64) {
         div.innerHTML = '<img src="' + res.data.b64 + '" alt="Diagrama" class="zoomable"'
           + ' onclick="abrirLightbox(this.src)"'
-          + ' style="width:100%;max-height:340px;object-fit:contain;border:1px solid var(--border);border-radius:6px;background:#fff;display:block">';
+          + '>';
       } else {
         div.innerHTML = '';
       }
@@ -1571,14 +1783,14 @@ function abrirDetalle(codigoSAP) {
   S.matActivo = m;
 
   document.getElementById('det-titulo').textContent =
-    `SAP ${m.codigo_sap} — ${m.material}`;
+    `SAP ${m.codigo_sap} - ${m.material}`;
 
   const imgSrc = driveImgUrl(m.imagen_url);
   const img = imgSrc
     ? `<img class="detail-img zoomable" src="${esc(imgSrc)}" alt="imagen"
         onclick="abrirLightbox(this.src)"
-        onerror="this.outerHTML='<div class=no-img style=margin-bottom:12px>Sin imagen</div>'">`
-    : `<div class="no-img" style="margin-bottom:12px">Sin imagen</div>`;
+        onerror="this.outerHTML='<div class=no-img>Sin imagen</div>'">`
+    : `<div class="no-img">Sin imagen</div>`;
 
   const campos = [
     ['Descripción',          m.material],
@@ -1614,9 +1826,8 @@ function abrirDetalle(codigoSAP) {
 
   if (m.es_gpc_no_cargado) {
     // Ítem GPC sin SAP: armar objeto GPC con los datos del material y renderizar
-    const aviso = '<div style="background:#fff3e0;border:1px solid #fb8c00;border-radius:8px;'
-      + 'padding:10px 14px;margin-bottom:14px;color:#7a3b00;font-size:12px">'
-      + '⚠ Material del catálogo GPC <strong>sin número SAP</strong> — pendiente de incorporar al almacén.'
+    const aviso = '<div class="aviso aviso-warn">'
+      + 'Material del catálogo GPC <strong>sin número SAP</strong>, pendiente de incorporar al almacén.'
       + '</div>';
     const gpcItem = [{
       fuente:          'GPC no cargado en almacen',
@@ -1640,7 +1851,7 @@ function abrirDetalle(codigoSAP) {
     }];
     document.getElementById('det-gpc').innerHTML = aviso + renderGPC(gpcItem);
   } else {
-    document.getElementById('det-gpc').innerHTML = '<p style="font-size:12px;color:var(--txt2);margin-top:8px">Cargando GPC…</p>';
+    document.getElementById('det-gpc').innerHTML = '<p class="texto-sec">Cargando GPC…</p>';
     apiGet('getGPC', { codigoSAP: m.codigo_sap }).then(function(res) {
       const gpc = (res.ok && res.data && res.data.length) ? res.data : null;
       document.getElementById('det-gpc').innerHTML = gpc ? renderGPC(gpc) : '';
@@ -1660,7 +1871,7 @@ function previewNuevaImagen(input) {
   const reader = new FileReader();
   reader.onload = function(e) {
     document.getElementById('form-img-preview').innerHTML =
-      '<img src="' + e.target.result + '" style="max-height:120px;border-radius:6px;border:1px solid var(--border)">';
+      '<img src="' + e.target.result + '" class="img-preview" alt="Vista previa">';
     document.getElementById('inp-imagen-url').value = '';
   };
   reader.readAsDataURL(input.files[0]);
@@ -1718,7 +1929,7 @@ function abrirEdicion(codigoSAP) {
   if (!m) return;
   modoEdicion = true;
   S.matActivo = m;
-  document.getElementById('mat-titulo').textContent = `Editar — SAP ${m.codigo_sap}`;
+  document.getElementById('mat-titulo').textContent = `Editar material SAP ${m.codigo_sap}`;
   const form = document.getElementById('form-material');
   form.reset();
   // Poblar campos
@@ -1734,8 +1945,8 @@ function abrirEdicion(codigoSAP) {
   document.getElementById('inp-imagen-file').value = '';
   const imgSrc = driveImgUrl(m.imagen_url);
   document.getElementById('form-img-preview').innerHTML = imgSrc
-    ? '<img src="' + esc(imgSrc) + '" style="max-height:120px;border-radius:6px;border:1px solid var(--border)" onerror="this.style.display=\'none\'">'
-    : '<div class="no-img" style="height:60px;font-size:12px">Sin imagen</div>';
+    ? '<img src="' + esc(imgSrc) + '" class="img-preview" alt="Imagen actual" onerror="this.style.display=\'none\'">'
+    : '<div class="no-img" style="height:60px">Sin imagen</div>';
   abrirOverlay('ov-material');
 }
 
@@ -1790,7 +2001,7 @@ function abrirMovimiento(codigoSAP) {
   if (!m) return;
   S.matActivo = m;
   document.getElementById('mov-mat-info').textContent =
-    `SAP ${m.codigo_sap} — ${m.material} | Stock actual: ${m.cantidad}`;
+    `SAP ${m.codigo_sap} - ${m.material} | Stock actual: ${m.cantidad}`;
   document.getElementById('form-mov').reset();
   abrirOverlay('ov-movimiento');
 }
@@ -1832,7 +2043,7 @@ async function submitMovimiento(e) {
 async function abrirMovimientosMat() {
   if (!S.matActivo) return;
   const m = S.matActivo;
-  document.getElementById('movs-titulo').textContent = `Movimientos — SAP ${m.codigo_sap}`;
+  document.getElementById('movs-titulo').textContent = `Movimientos del material SAP ${m.codigo_sap}`;
   mostrarLoading(true);
   try {
     const res = await apiGet('getMovimientos', { codigoSAP: m.codigo_sap });
@@ -1847,11 +2058,11 @@ async function abrirMovimientosMat() {
       tbody.innerHTML = movs.map(mv =>
         `<tr>
           <td>${esc(mv.fecha)}</td>
-          <td><span class="tipo-${mv.tipo}">${mv.tipo === 'E' ? '▲ Entrada' : '▼ Salida'}</span></td>
+          <td><span class="tipo-${mv.tipo}">${mv.tipo === 'E' ? 'Entrada' : 'Salida'}</span></td>
           <td>${mv.cantidad}</td>
           <td>${esc(mv.usuario)}</td>
-          <td>${esc(mv.nro_orden_sap || '—')}</td>
-          <td>${esc(mv.observacion || '—')}</td>
+          <td>${esc(mv.nro_orden_sap || '-')}</td>
+          <td>${esc(mv.observacion || '-')}</td>
         </tr>`
       ).join('');
     }
@@ -1915,7 +2126,7 @@ function descargarTemplate(tipo) {
   });
   a.click();
   URL.revokeObjectURL(url);
-  toast('Template descargado: ' + S.materiales.length + ' materiales', 'ok');
+  toast('Plantilla descargada: ' + S.materiales.length + ' materiales', 'ok');
 }
 
 function abrirActualizarMasivo() {
@@ -2011,7 +2222,7 @@ function parsearCSVMasivo(input) {
         csvMasivoData.length + ' registros · campos: ' + colsVis.slice(1).join(', ');
       document.getElementById('tabla-preview-masivo').innerHTML =
         '<table class="mov-table"><thead>' + thead + '</thead><tbody>' + tbody + '</tbody></table>' +
-        (csvMasivoData.length > 5 ? '<p style="font-size:12px;color:var(--txt2);margin-top:4px">... y ' + (csvMasivoData.length - 5) + ' más</p>' : '');
+        (csvMasivoData.length > 5 ? '<p class="texto-sec mt-6">… y ' + (csvMasivoData.length - 5) + ' más</p>' : '');
       document.getElementById('btn-confirmar-masivo').disabled = false;
 
     } catch(err) {
@@ -2177,14 +2388,14 @@ function renderTablaDiferenciasSAP() {
       ? '<span class="diff-num diff-old">' + esc(String(d.cantidadActual)) + '</span> → <span class="diff-num diff-new">' + esc(String(d.cantidadNueva)) + '</span>'
       : '<span class="diff-num">' + esc(String(d.cantidadActual)) + '</span>';
     const ubicHtml = (d.cambiaUbicacion && incluirUbicacion)
-      ? '<span class="diff-old">' + esc(d.ubicacionActual || '—') + '</span> → <span class="diff-new">' + esc(d.ubicacionNueva || '—') + '</span>'
-      : esc(d.ubicacionActual || '—');
+      ? '<span class="diff-old">' + esc(d.ubicacionActual || '-') + '</span> → <span class="diff-new">' + esc(d.ubicacionNueva || '-') + '</span>'
+      : esc(d.ubicacionActual || '-');
     return '<tr><td><code>' + esc(d.codigo_sap) + '</code></td><td>' + esc(d.material) + '</td><td>' + cantHtml + '</td><td>' + ubicHtml + '</td></tr>';
   }).join('');
 
   document.getElementById('sap-sync-tabla').innerHTML =
     '<table class="mov-table"><thead>' + thead + '</thead><tbody>' + tbody + '</tbody></table>' +
-    (filasVisibles.length > 200 ? '<p style="font-size:12px;color:var(--txt2);margin-top:4px">... y ' + (filasVisibles.length - 200) + ' más</p>' : '');
+    (filasVisibles.length > 200 ? '<p class="texto-sec mt-6">… y ' + (filasVisibles.length - 200) + ' más</p>' : '');
 
   document.getElementById('btn-sync-sap').disabled = !filasVisibles.length;
 }
@@ -2358,8 +2569,8 @@ async function abrirAuditoria() {
           <td>${esc(l.usuario)}</td>
           <td><strong>${esc(l.accion)}</strong></td>
           <td>${esc(l.campo)}</td>
-          <td style="color:var(--err)">${esc(String(l.valor_anterior ?? ''))}</td>
-          <td style="color:var(--ok)">${esc(String(l.valor_nuevo ?? ''))}</td>
+          <td class="val-old">${esc(String(l.valor_anterior ?? ''))}</td>
+          <td class="val-new">${esc(String(l.valor_nuevo ?? ''))}</td>
           <td><code>${esc(String(l.codigo_sap ?? ''))}</code></td>
         </tr>`
       ).join('');
@@ -2650,20 +2861,20 @@ async function verPlanoValvula(btn, nombreArchivo) {
   const nuevaFila = document.createElement('tr');
   nuevaFila.className = 'valv-plano-row';
   const celdas = fila.children.length;
-  nuevaFila.innerHTML = '<td colspan="' + celdas + '" style="padding:10px"><span style="font-size:11px;color:var(--txt2)">Cargando plano…</span></td>';
+  nuevaFila.innerHTML = '<td colspan="' + celdas + '"><span class="texto-sec">Cargando plano…</span></td>';
   fila.after(nuevaFila);
 
   try {
     const res = await apiGet('getPlanoValvula', { nombreArchivo: nombreArchivo });
     if (res.ok && res.data && res.data.url) {
-      nuevaFila.querySelector('td').innerHTML = '<iframe src="' + res.data.url + '" style="width:100%;height:420px;border:1px solid var(--border);border-radius:6px" title="Plano ' + esc(nombreArchivo) + '"></iframe>';
+      nuevaFila.querySelector('td').innerHTML = '<iframe src="' + res.data.url + '" class="valv-plano" title="Plano ' + esc(nombreArchivo) + '"></iframe>';
       btn.textContent = 'Ocultar plano';
     } else {
-      nuevaFila.querySelector('td').innerHTML = '<span style="font-size:11px;color:var(--err)">No se encontró el archivo en Drive todavía</span>';
+      nuevaFila.querySelector('td').innerHTML = '<span class="texto-err">El archivo todavía no está disponible en Drive.</span>';
       btn.textContent = 'Ver plano';
     }
   } catch(e) {
-    nuevaFila.querySelector('td').innerHTML = '<span style="font-size:11px;color:var(--err)">Error: ' + esc(e.message) + '</span>';
+    nuevaFila.querySelector('td').innerHTML = '<span class="texto-err">Error: ' + esc(e.message) + '</span>';
     btn.textContent = 'Ver plano';
   }
 }
@@ -2679,17 +2890,17 @@ function renderValvulaKKSTabla(kksList) {
 
   const filas = conDatos.map(function(x) {
     const d = x.d;
-    if (!d) return '<tr><td><code>' + esc(x.kks) + '</code></td><td colspan="4" style="color:var(--txt2)">Sin datos en el listado técnico</td></tr>';
+    if (!d) return '<tr><td><code>' + esc(x.kks) + '</code></td><td colspan="4" class="vacio">Sin datos en el listado técnico</td></tr>';
     const operacion = d.categoria === 'Operada'
-      ? '<span class="valv-operada">Operada' + (d.actuador ? ' — ' + esc(d.actuador) : '') + '</span>'
+      ? '<span class="valv-operada">Operada' + (d.actuador ? ': ' + esc(d.actuador) : '') + '</span>'
       : esc(d.categoria || '');
     const archivoPlano = resolverArchivoPlano(d);
     const planoCell = archivoPlano
       ? '<button class="btn-sec btn-sm" onclick="verPlanoValvula(this,\'' + esc(archivoPlano).replace(/'/g, "\\'") + '\')">Ver plano</button>'
-      : '<span style="color:var(--txt2)">—</span>';
+      : '<span class="vacio">-</span>';
     return '<tr>'
       + '<td><code>' + esc(x.kks) + '</code></td>'
-      + '<td>' + esc(d.servicio) + (d.comentario ? '<div style="font-size:11px;color:var(--txt2)">' + esc(d.comentario) + '</div>' : '') + '</td>'
+      + '<td>' + esc(d.servicio) + (d.comentario ? '<div class="texto-sec">' + esc(d.comentario) + '</div>' : '') + '</td>'
       + '<td>' + esc(d.tag_linea) + (d.sistema ? ' <span class="valv-sistema">' + esc(d.sistema) + '</span>' : '') + '</td>'
       + '<td>' + operacion + '</td>'
       + '<td>' + planoCell + '</td>'
@@ -2707,10 +2918,10 @@ function renderValvulaHRSGCard(g) {
   const kitsHtml = kits.map(function(k) {
     const cls = (Number(k.cantidad) > 0) ? 'con-stock' : 'sin-stock';
     return '<span class="valv-kit ' + cls + '"><code>' + esc(k.codigo_sap) + '</code> ' + esc(k.material)
-      + ' — ' + esc(String(k.cantidad)) + ' en ' + esc(k.ubicacion || 'almacén') + '</span>';
+      + ': ' + esc(String(k.cantidad)) + ' en ' + esc(k.ubicacion || 'almacén') + '</span>';
   }).join('') + pendientes.map(function(k) {
     return '<span class="valv-kit sin-stock"><code>' + esc(k.codigo_sap) + '</code> ' + esc(k.material)
-      + ' — en Stock SAP, no cargado en Materiales</span>';
+      + ': en Stock SAP, no cargado en Materiales</span>';
   }).join('');
 
   const repuestosHtml = g.repuestos.length
@@ -2726,7 +2937,7 @@ function renderValvulaHRSGCard(g) {
   const porKKSHtml = porKKS.map(function(k) {
     const cls = (Number(k.cantidad) > 0) ? 'con-stock' : 'sin-stock';
     return '<span class="valv-kit ' + cls + '"><code>' + esc(k.codigo_sap) + '</code> ' + esc(k.material)
-      + ' — ' + esc(String(k.cantidad)) + ' en ' + esc(k.ubicacion || 'almacén') + '</span>';
+      + ': ' + esc(String(k.cantidad)) + ' en ' + esc(k.ubicacion || 'almacén') + '</span>';
   }).join('');
   const porKKSSection = porKKS.length
     ? '<div class="valv-kits"><div class="valv-kits-label">Repuestos en almacén (por KKS en Observaciones):</div>' + porKKSHtml + '</div>'
@@ -2736,12 +2947,12 @@ function renderValvulaHRSGCard(g) {
     ? '<div class="valv-kits"><div class="valv-kits-label">Kits en almacén:</div>'
       + (kitsHtml || '<span class="valv-kit sin-stock">Sin código SAP encontrado</span>') + '</div>'
       + porKKSSection
-    : (porKKSSection || '<p class="valv-nota">Sin cotización — no tiene repuestos ofertados ni referencia para buscar kits en almacén.</p>');
+    : (porKKSSection || '<p class="valv-nota">Sin cotización: no tiene repuestos ofertados ni referencia para buscar kits en almacén.</p>');
 
   return '<div class="gpc-card">'
     + renderValvulaKKSTabla(g.kks)
     + '<div class="valv-card-header">'
-    + '<code style="font-size:12px;font-weight:700;color:var(--pri)">' + esc(g.order_no) + '</code>'
+    + '<code class="gpc-id">' + esc(g.order_no) + '</code>'
     + (g.make ? '<span class="valv-make">' + esc(g.make) + '</span>' : '')
     + (!g.cotizada ? '<span class="valv-sin-cotizar">Sin cotización</span>' : '')
     + (g.kks.length ? '<span class="valv-kks-count">' + g.kks.length + ' válvula' + (g.kks.length > 1 ? 's' : '') + ' en planta</span>' : '')
@@ -2770,7 +2981,7 @@ function renderValvulasHRSG(items) {
   count.textContent = items.length + ' de ' + total + ' válvulas';
   cont.innerHTML = items.length
     ? items.map(renderValvulaHRSGCard).join('')
-    : '<p style="font-size:13px;color:var(--txt2)">Sin resultados</p>';
+    : '<p class="texto-sec">Sin resultados. Revise el término de búsqueda.</p>';
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -2792,11 +3003,11 @@ async function cargarStockSAP() {
     const totalTexto = S.stockSAP.length.toLocaleString('es-AR') + ' materiales analizados en Stock SAP';
     const btnKPIs = document.getElementById('btn-kpis');
     if (btnKPIs) {
-      btnKPIs.title = 'KPIs de calidad de ubicación (Plan de Mejora del Maestro de Materiales) — ' + totalTexto;
+      btnKPIs.title = 'KPI de calidad de ubicación (Plan de Mejora del Maestro de Materiales). ' + totalTexto;
     }
     const btnConteo = document.getElementById('btn-conteo-fisico');
     if (btnConteo) {
-      btnConteo.title = 'Genera una planilla imprimible con materiales al azar (fuente: hoja Stock SAP) para el conteo físico — ' + totalTexto;
+      btnConteo.title = 'Genera una planilla imprimible con materiales al azar (fuente: hoja Stock SAP) para el conteo físico. ' + totalTexto;
     }
     return true;
   } catch (err) {
@@ -2866,8 +3077,8 @@ function generarConteoFisico() {
     <div class="conteo-header">
       <img src="CTCT.jpg" alt="CTCT" class="conteo-logo">
       <div>
-        <h1>Auditoría de Almacén — Conteo Físico</h1>
-        <p>CTCT — Grupo Albanesi</p>
+        <h1>Auditoría de Almacén - Conteo Físico</h1>
+        <p>CTCT - Grupo Albanesi</p>
       </div>
     </div>
     <table class="conteo-datos">
@@ -3223,7 +3434,7 @@ function esc(str) {
 const KKS_REGEX = /\b0[12][A-Z]{2,4}\d{2}[A-Z]{2}\d{3,4}\b/gi;
 function marcarKKSObservaciones(obs) {
   const escaped = esc(obs || '');
-  if (!escaped) return '—';
+  if (!escaped) return '-';
   return escaped.replace(KKS_REGEX, function(m) {
     return '<a href="#" class="valv-kks-link" onclick="event.stopPropagation();event.preventDefault();abrirValvulasHRSGDesdeKKS(\'' + m.toUpperCase() + '\')">' + m + '</a>';
   });
