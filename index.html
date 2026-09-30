@@ -581,6 +581,20 @@
     #scanner-result { text-align: center; font-size: 15px; font-weight: 600; color: var(--pri); min-height: 22px;
       font-family: var(--mono); }
     #btn-linterna.on { background: #fff4d6; border-color: #d08a14; color: #7a4d00; }
+    .fab-scan, .mob-only, .det-hero { display: none; }
+
+    /* ═══ Resumen del material (tarjeta en celular) ═══════════ */
+    .det-hero { margin-bottom: 16px; }
+    .det-hero-sap { font-family: var(--mono); font-size: 13px; color: var(--txt2); }
+    .det-hero-desc { font-size: 17px; font-weight: 600; line-height: 1.3; margin: 2px 0 12px; word-break: break-word; }
+    .det-hero-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .det-tile { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 10px 12px; min-width: 0; }
+    .det-tile-k { font-size: 11px; font-weight: 600; color: var(--txt2); text-transform: uppercase; letter-spacing: .04em; }
+    .det-tile-v { font-size: 24px; font-weight: 700; line-height: 1.2; margin-top: 2px; word-break: break-word; }
+    .det-tile-v.ubic { font-family: var(--mono); font-size: 20px; }
+    .det-tile-v.zero { color: var(--err); }
+    .det-tile-v.low  { color: var(--warn); }
+    .det-tile-s { font-size: 12px; color: var(--txt2); margin-top: 2px; }
 
     /* ═══ Carga ═══════════════════════════════════════════════ */
     .loading-overlay {
@@ -686,6 +700,70 @@
       }
       .modal-footer { flex-wrap: wrap; }
       .modal-footer button { flex: 1; min-width: 0; text-align: center; }
+
+      /* ── Encabezado / barra: que entre todo en una línea ── */
+      header button.logout { white-space: nowrap; padding: 6px 10px; }
+      .txt-desk { display: none; }
+      /* Acciones de fila: se hacen desde la tarjeta (la fila entera abre el detalle) */
+      #thead-row th:nth-child(11), #tbody td:nth-child(11) { display: none; }
+      .table-wrap { padding-bottom: 96px; }
+
+      /* ── Avisos arriba, para no tapar los botones de abajo ── */
+      #toast-wrap { top: 12px; bottom: auto; left: 12px; right: 12px; }
+      .toast { max-width: none; }
+
+      /* ── Botón flotante de escaneo ── */
+      .fab-scan {
+        display: flex; position: fixed; right: 16px; bottom: calc(20px + env(safe-area-inset-bottom));
+        z-index: calc(var(--z-modal) - 1); align-items: center; gap: 8px;
+        background: var(--pri); color: #fff; border: none; border-radius: 999px;
+        padding: 0 20px; height: 56px; font: inherit; font-size: 15px; font-weight: 600;
+        box-shadow: 0 6px 18px rgba(16, 24, 40, .3); cursor: pointer;
+      }
+      .fab-scan:active { transform: scale(.97); }
+      .mob-only { display: revert; }
+
+      /* ── Escáner a pantalla completa ── */
+      #ov-scanner { background: #000; }
+      #ov-scanner .modal {
+        max-width: none !important; max-height: none; height: 100vh; height: 100dvh;
+        border-radius: 0 !important; background: #000; color: #fff;
+        display: flex; flex-direction: column; overflow: hidden; animation: none;
+      }
+      #ov-scanner .modal-header { border-bottom: none; background: #000; padding: 10px 8px 10px 16px;
+        padding-top: calc(10px + env(safe-area-inset-top)); }
+      #ov-scanner .modal-header h2 { color: #fff; }
+      #ov-scanner .modal-header button.close { color: #fff; width: 44px; height: 44px; font-size: 20px; }
+      #ov-scanner .modal-body { flex: 1; min-height: 0; padding: 0 !important; display: flex; flex-direction: column; }
+      #ov-scanner .scan-viewport { flex: 1; aspect-ratio: auto; max-height: none; border-radius: 0; background: #000; }
+      /* contain: la etiqueta se ve entera aunque la cámara entregue la imagen apaisada */
+      #ov-scanner .scan-viewport video { object-fit: contain; }
+      #ov-scanner .scan-guide-rect { height: 88px; left: 6%; right: 6%; }
+      #ov-scanner .scan-guide-hint { bottom: auto; top: calc(50% - 84px); font-size: 14px; }
+      #scanner-status { color: #d6dbe3; margin: 0; padding: 12px 16px 0; font-size: 14px; }
+      #scanner-result { color: #fff; font-size: 18px; padding: 4px 16px 0; }
+      #ov-scanner .modal-footer { background: #000; border-top: none; flex-wrap: nowrap;
+        padding: 12px 16px calc(16px + env(safe-area-inset-bottom)) !important; }
+      #ov-scanner .modal-footer button { min-height: 52px; font-size: 15px; }
+      #ov-scanner .modal-footer .btn-sec { background: #1d2430; color: #fff; border-color: #3a4454; }
+      #ov-scanner #btn-linterna.on { background: #fff4d6; color: #7a4d00; border-color: #d08a14; }
+
+      /* ── Tarjeta del material ── */
+      .det-hero { display: block; }
+      #ov-detalle .modal-header h2 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 15px; }
+      #ov-detalle .no-img { display: none; }
+      #ov-detalle .detail-img { max-height: 180px; }
+      .det-vacio, .det-en-hero { display: none; }
+      /* Cabecera y botones fijos; sólo se desplaza el contenido */
+      #ov-detalle .modal { display: flex; flex-direction: column; max-height: 94vh; max-height: 94dvh; overflow: hidden; }
+      #ov-detalle .det-panels { flex: 1; min-height: 0; overflow-y: auto; }
+      #ov-detalle #det-body { overflow: visible; }
+      #det-gpc:empty { display: none; }
+      #ov-detalle .modal-footer { display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+        padding-bottom: calc(12px + env(safe-area-inset-bottom)) !important; }
+      #ov-detalle .modal-footer button { min-height: 48px; }
+      #ov-detalle .modal-footer .btn-pri { grid-column: 1 / -1; order: -2; }
+      #ov-detalle .modal-footer #btn-escanear-otro { order: -1; }
     }
   </style>
 </head>
@@ -732,7 +810,7 @@
           </svg>
         </button>
       </div>
-      <button class="btn-pri" onclick="abrirAltaMaterial()">Nuevo material</button>
+      <button class="btn-pri" onclick="abrirAltaMaterial()">Nuevo<span class="txt-desk"> material</span></button>
     </div>
     <div class="toolbar-row">
       <div class="actions">
@@ -813,6 +891,7 @@
       <button class="btn-sec" onclick="abrirMovimientosMat()">Ver movimientos</button>
       <button class="btn-sec admin-only" onclick="abrirEdicionDesde()" id="btn-editar-det">Editar</button>
       <button class="btn-pri" onclick="abrirMovDesde()">Registrar movimiento</button>
+      <button class="btn-sec mob-only" id="btn-escanear-otro" onclick="escanearOtro()">Escanear otro</button>
     </div>
   </div>
 </div>
@@ -1226,6 +1305,14 @@
     </div>
   </div>
 </div>
+
+<button class="fab-scan" onclick="abrirScanner()" aria-label="Escanear etiqueta SAP con la cámara">
+  <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+    <circle cx="12" cy="13" r="4"/>
+  </svg>
+  Escanear
+</button>
 
 <!-- ══ MODAL: SCANNER ════════════════════════════════════════ -->
 <div class="overlay" id="ov-scanner">
@@ -1779,6 +1866,32 @@ function driveImgUrl(url) {
   return 'https://drive.google.com/thumbnail?id=' + m[1] + '&sz=w800';
 }
 
+// Resumen para celular: lo que se busca parado frente al estante (ubicación y stock)
+function heroDetalle(m) {
+  if (m.es_gpc_no_cargado) return '';
+  const cant = Number(m.cantidad) || 0;
+  const cantClass = cant === 0 ? 'zero' : (m.stock_min && cant <= Number(m.stock_min) ? 'low' : '');
+  const minMax = [m.stock_min ? 'Mín ' + esc(m.stock_min) : '', m.stock_max ? 'Máx ' + esc(m.stock_max) : '']
+    .filter(Boolean).join(' · ');
+  return '<div class="det-hero">'
+    + '<div class="det-hero-sap">SAP ' + esc(m.codigo_sap) + '</div>'
+    + '<div class="det-hero-desc">' + esc(m.material) + '</div>'
+    + '<div class="det-hero-tiles">'
+    +   '<div class="det-tile"><div class="det-tile-k">Ubicación</div>'
+    +     '<div class="det-tile-v ubic">' + esc(m.ubicacion || '-') + '</div></div>'
+    +   '<div class="det-tile"><div class="det-tile-k">Stock</div>'
+    +     '<div class="det-tile-v ' + cantClass + '">' + cant + ' <small style="font-size:13px;font-weight:500">' + esc(m.unidad_despacho || '') + '</small></div>'
+    +     (minMax ? '<div class="det-tile-s">' + minMax + '</div>' : '') + '</div>'
+    + '</div></div>';
+}
+
+function escanearOtro() {
+  cerrarOverlay('ov-detalle');
+  abrirScanner();
+}
+
+const EN_HERO = ['Descripción', 'Código SAP', 'Ubicación en almacén', 'Cantidad en almacén', 'Stock MIN', 'Stock MAX'];
+
 function abrirDetalle(codigoSAP) {
   const m = findMat(codigoSAP);
   if (!m) return;
@@ -1816,12 +1929,15 @@ function abrirDetalle(codigoSAP) {
   const rows = campos.map(function(par) {
     var k = par[0], v = par[1];
     var valHtml = (k === 'Observaciones') ? marcarKKSObservaciones(v) : esc(v != null ? v : '');
-    return '<div class="detail-key">' + esc(k) + '</div>'
-         + '<div class="detail-val">' + valHtml + '</div>';
+    // En celular se ocultan los campos vacíos para acortar la tarjeta
+    var cls = (v == null || String(v).trim() === '') ? ' det-vacio'
+            : (!m.es_gpc_no_cargado && EN_HERO.includes(k)) ? ' det-en-hero' : '';
+    return '<div class="detail-key' + cls + '">' + esc(k) + '</div>'
+         + '<div class="detail-val' + cls + '">' + valHtml + '</div>';
   }).join('');
 
   document.getElementById('det-body').innerHTML =
-    img + '<div class="detail-grid">' + rows + '</div>';
+    heroDetalle(m) + img + '<div class="detail-grid">' + rows + '</div>';
 
   document.getElementById('btn-editar-det').style.display = (S.esAdmin && !m.es_gpc_no_cargado) ? '' : 'none';
   abrirOverlay('ov-detalle');
@@ -3371,12 +3487,14 @@ function obtenerOcrWorker() {
 }
 
 // Recorta del video la zona que el usuario ve dentro del recuadro guía.
-// El <video> usa object-fit: cover, así que hay que deshacer el escalado/recorte.
+// El <video> usa object-fit cover (escritorio) o contain (celular a pantalla completa),
+// así que hay que deshacer el escalado/recorte correspondiente.
 function recortarGuia(video, escalaSalida) {
   const vw = video.videoWidth, vh = video.videoHeight;
   const vr = video.getBoundingClientRect();
   const gr = document.querySelector('.scan-guide-rect').getBoundingClientRect();
-  const escala = Math.max(vr.width / vw, vr.height / vh);
+  const contain = getComputedStyle(video).objectFit === 'contain';
+  const escala = (contain ? Math.min : Math.max)(vr.width / vw, vr.height / vh);
   const offX = (vw * escala - vr.width) / 2;
   const offY = (vh * escala - vr.height) / 2;
   // Margen extra alrededor del recuadro por si el número queda justo en el borde
@@ -3621,8 +3739,11 @@ function onSapEncontrado(sap) {
   document.getElementById('inp-buscar').value = sap;
   ejecutarBusqueda();
   const existe = S.materiales.some(function(m) { return String(m.codigo_sap) === String(sap); });
-  if (existe) toast('SAP detectado: ' + sap, 'ok');
-  else toast('SAP ' + sap + ' leído, pero no está en el maestro de materiales', 'warn');
+  if (existe) {
+    abrirDetalle(sap);
+  } else {
+    toast('SAP ' + sap + ' leído, pero no está en el maestro de materiales', 'warn');
+  }
 }
 
 function cerrarScanner() {
