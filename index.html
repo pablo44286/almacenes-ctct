@@ -566,7 +566,7 @@
     .scan-viewport video { width: 100%; height: 100%; object-fit: cover; display: block; }
     .scan-guide-rect {
       position: absolute; left: 8%; right: 8%;
-      top: 50%; transform: translateY(-50%); height: 58px;
+      top: 50%; transform: translateY(-50%); height: 72px;
       border: 2px solid #ffffff; border-radius: var(--r);
       box-shadow: 0 0 0 9999px rgba(0, 0, 0, .5);
       pointer-events: none;
@@ -580,6 +580,7 @@
     #scanner-status { text-align: center; margin-top: 12px; font-size: 13px; color: var(--txt2); }
     #scanner-result { text-align: center; font-size: 15px; font-weight: 600; color: var(--pri); min-height: 22px;
       font-family: var(--mono); }
+    #btn-linterna.on { background: #fff4d6; border-color: #d08a14; color: #7a4d00; }
 
     /* ═══ Carga ═══════════════════════════════════════════════ */
     .loading-overlay {
@@ -1237,12 +1238,13 @@
       <div class="scan-viewport">
         <video id="scanner-video" playsinline muted autoplay></video>
         <div class="scan-guide-rect"></div>
-        <p class="scan-guide-hint">Centre el número SAP dentro del recuadro</p>
+        <p class="scan-guide-hint">Encuadrá sólo el número SAP grande (10 dígitos)</p>
       </div>
       <p id="scanner-status">Iniciando cámara…</p>
       <p id="scanner-result"></p>
     </div>
     <div class="modal-footer">
+      <button id="btn-linterna" class="btn-sec" onclick="alternarLinterna()" style="display:none" title="Encender/apagar linterna">Linterna</button>
       <button class="btn-sec" onclick="cerrarScanner()">Cancelar</button>
       <button id="btn-capturar" class="btn-pri" onclick="capturarYOcr()" style="display:none">Capturar</button>
     </div>
@@ -3307,89 +3309,306 @@ function exportarKPI4CSV() {
 }
 
 // ═══════════════════════════════════════════════════════════
-// SCANNER — TextDetector nativo (rápido) + OCR backend (fallback)
+// SCANNER — lectura del número SAP con la cámara
+// Cadena de lectores, todos corriendo en el navegador sobre el recuadro guía:
+//   1. BarcodeDetector nativo (Chrome Android): código de barras / QR de la etiqueta
+//   2. TextDetector nativo (si el navegador lo expone)
+//   3. Tesseract.js (OCR en el navegador, solo dígitos) — se carga bajo demanda
+// Manual: botón Capturar → OCR del backend Apps Script como último recurso.
 // ═══════════════════════════════════════════════════════════
+const TESSERACT_CDN = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+const SCAN_INTERVALO_MS = 700;
+
 let scannerStream  = null;
 let scannerTimer   = null;
 let scannerOcupado = false;
+let scannerSesion  = 0;      // invalida lecturas en curso al cerrar el modal
+let scannerUltimo  = null;   // última lectura OCR no confirmada (se exige 2 iguales)
+let scannerTorch   = false;
 let textDetector   = null;
+let barcodeDetector = null;
+let ocrWorker      = null;
+let ocrWorkerProm  = null;
 
 try { if ('TextDetector' in window) textDetector = new TextDetector(); } catch(e) {}
 
+async function iniciarBarcodeDetector() {
+  if (barcodeDetector || !('BarcodeDetector' in window)) return;
+  try {
+    const soportados = await BarcodeDetector.getSupportedFormats();
+    const deseados = ['code_128', 'code_39', 'code_93', 'ean_13', 'ean_8', 'itf', 'codabar', 'qr_code', 'data_matrix']
+      .filter(function(f) { return soportados.includes(f); });
+    if (deseados.length) barcodeDetector = new BarcodeDetector({ formats: deseados });
+  } catch(e) { barcodeDetector = null; }
+}
+
+function cargarScript(src) {
+  return new Promise(function(resolve, reject) {
+    const s = document.createElement('script');
+    s.src = src; s.async = true;
+    s.onload = resolve;
+    s.onerror = function() { reject(new Error('No se pudo cargar ' + src)); };
+    document.head.appendChild(s);
+  });
+}
+
+// Worker de Tesseract reutilizable entre aperturas del escáner (la primera carga baja ~5 MB).
+function obtenerOcrWorker() {
+  if (ocrWorker) return Promise.resolve(ocrWorker);
+  if (!ocrWorkerProm) {
+    ocrWorkerProm = (async function() {
+      if (!window.Tesseract) await cargarScript(TESSERACT_CDN);
+      const w = await Tesseract.createWorker('eng');
+      await w.setParameters({
+        tessedit_char_whitelist: '0123456789',
+        tessedit_pageseg_mode: '7'   // una sola línea de texto
+      });
+      ocrWorker = w;
+      return w;
+    })().catch(function(e) { ocrWorkerProm = null; throw e; });
+  }
+  return ocrWorkerProm;
+}
+
+// Recorta del video la zona que el usuario ve dentro del recuadro guía.
+// El <video> usa object-fit: cover, así que hay que deshacer el escalado/recorte.
+function recortarGuia(video, escalaSalida) {
+  const vw = video.videoWidth, vh = video.videoHeight;
+  const vr = video.getBoundingClientRect();
+  const gr = document.querySelector('.scan-guide-rect').getBoundingClientRect();
+  const escala = Math.max(vr.width / vw, vr.height / vh);
+  const offX = (vw * escala - vr.width) / 2;
+  const offY = (vh * escala - vr.height) / 2;
+  // Margen extra alrededor del recuadro por si el número queda justo en el borde
+  const margen = 0.25 * gr.height;
+  let sx = (gr.left - vr.left - margen + offX) / escala;
+  let sy = (gr.top  - vr.top  - margen + offY) / escala;
+  let sw = (gr.width  + 2 * margen) / escala;
+  let sh = (gr.height + 2 * margen) / escala;
+  sx = Math.max(0, sx); sy = Math.max(0, sy);
+  sw = Math.min(vw - sx, sw); sh = Math.min(vh - sy, sh);
+
+  const canvas = document.getElementById('scanner-canvas');
+  const k = escalaSalida || 1;
+  canvas.width  = Math.round(sw * k);
+  canvas.height = Math.round(sh * k);
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(video, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+  return canvas;
+}
+
+// Escala de grises + estiramiento de contraste: mejora mucho el OCR en etiquetas gastadas.
+function mejorarParaOcr(canvas) {
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const d = img.data;
+  let min = 255, max = 0;
+  for (let i = 0; i < d.length; i += 4) {
+    const g = (d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114) | 0;
+    d[i] = g;
+    if (g < min) min = g;
+    if (g > max) max = g;
+  }
+  const rango = Math.max(1, max - min);
+  for (let i = 0; i < d.length; i += 4) {
+    const g = ((d[i] - min) * 255 / rango) | 0;
+    d[i] = d[i + 1] = d[i + 2] = g;
+  }
+  ctx.putImageData(img, 0, 0);
+  return canvas;
+}
+
+// Confusiones típicas de OCR entre letras y dígitos
+const OCR_A_DIGITO = { O: '0', o: '0', Q: '0', D: '0', I: '1', l: '1', i: '1', '|': '1', Z: '2', z: '2', S: '5', s: '5', B: '8', G: '6', T: '7' };
+
+// Devuelve { sap, conocido } con el mejor candidato del texto leído, o null.
+function extraerSap(texto) {
+  if (!texto) return null;
+  const norm = String(texto).replace(/[OoQDIli|ZzSsBGT]/g, function(c) { return OCR_A_DIGITO[c]; });
+  // Corridas de dígitos permitiendo espacios, puntos o guiones sueltos en medio
+  const corridas = (norm.match(/\d[\d\s.\-]*\d/g) || [])
+    .map(function(r) { return r.replace(/\D/g, ''); })
+    .filter(function(r) { return r.length >= 6; });
+  if (!corridas.length) return null;
+
+  const conocidos = new Set(S.materiales.map(function(m) { return String(m.codigo_sap || ''); }).filter(Boolean));
+  const sinCeros = function(s) { return s.replace(/^0+/, ''); };
+  const conocidosSinCeros = new Map();
+  conocidos.forEach(function(c) { conocidosSinCeros.set(sinCeros(c), c); });
+
+  for (const r of corridas) {
+    if (conocidos.has(r)) return { sap: r, conocido: true };
+    // SAP suele imprimir el material con ceros a la izquierda (18 posiciones)
+    const c = conocidosSinCeros.get(sinCeros(r));
+    if (c) return { sap: c, conocido: true };
+    // Dígitos pegados a otro número: buscar un código conocido contenido en la corrida
+    for (let len = Math.min(r.length - 1, 18); len >= 6; len--) {
+      for (let i = 0; i + len <= r.length; i++) {
+        const sub = r.substr(i, len);
+        if (conocidos.has(sub)) return { sap: sub, conocido: true };
+      }
+    }
+  }
+  // Sin coincidencia en el maestro: aceptar sólo el formato estándar de 10 dígitos
+  for (const r of corridas) {
+    if (r.length === 10) return { sap: r, conocido: false };
+    const m = sinCeros(r);
+    if (m.length === 10) return { sap: m, conocido: false };
+  }
+  return null;
+}
+
+async function leerCuadro(video, sesion) {
+  // 1. Código de barras / QR
+  if (barcodeDetector) {
+    try {
+      const codigos = await barcodeDetector.detect(video);
+      for (const c of codigos) {
+        const r = extraerSap(c.rawValue);
+        if (r) return Object.assign(r, { fuente: 'barras', confirmado: true });
+      }
+    } catch(e) {}
+  }
+  if (sesion !== scannerSesion) return null;
+
+  // 2. TextDetector nativo
+  if (textDetector) {
+    try {
+      const textos = await textDetector.detect(recortarGuia(video, 1));
+      for (const t of textos) {
+        const r = extraerSap(t.rawValue);
+        if (r) return Object.assign(r, { fuente: 'texto', confirmado: r.conocido });
+      }
+    } catch(e) {}
+  }
+  if (sesion !== scannerSesion) return null;
+
+  // 3. Tesseract.js
+  if (ocrWorker) {
+    // Tesseract rinde mejor con caracteres de ~50-80 px de alto: normalizar el recorte
+    // a ~150 px (achica en celulares de alta resolución, agranda en cámaras chicas)
+    const alto = recortarGuia(video, 1).height;
+    const c2 = recortarGuia(video, Math.min(3, 150 / alto));
+    const { data } = await ocrWorker.recognize(mejorarParaOcr(c2));
+    const r = extraerSap(data.text);
+    if (r) return Object.assign(r, { fuente: 'ocr', confirmado: r.conocido });
+  }
+  return null;
+}
+
 async function abrirScanner() {
+  const sesion = ++scannerSesion;
   abrirOverlay('ov-scanner');
-  document.getElementById('scanner-status').textContent = 'Iniciando cámara…';
+  const status = document.getElementById('scanner-status');
+  status.textContent = 'Iniciando cámara…';
   document.getElementById('scanner-result').textContent = '';
   document.getElementById('btn-capturar').style.display = 'none';
+  document.getElementById('btn-linterna').style.display = 'none';
   scannerOcupado = false;
+  scannerUltimo  = null;
+  scannerTorch   = false;
+
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    status.textContent = 'Este navegador no permite usar la cámara (se requiere HTTPS).';
+    return;
+  }
 
   try {
     scannerStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }
     });
+    if (sesion !== scannerSesion) { scannerStream.getTracks().forEach(function(t) { t.stop(); }); return; }
     const video = document.getElementById('scanner-video');
     video.srcObject = scannerStream;
     await video.play();
 
-    if (textDetector) {
-      // Modo rápido: TextDetector nativo — Chrome Android, sin backend
-      document.getElementById('scanner-status').textContent = 'Apuntá el número SAP al recuadro…';
-      scannerTimer = setInterval(async function() {
-        if (scannerOcupado || video.readyState < 2) return;
-        scannerOcupado = true;
-        try {
-          const textos = await textDetector.detect(video);
-          for (const t of textos) {
-            const match = t.rawValue.replace(/\s/g, '').match(/\d{10}/);
-            if (match) { onSapEncontrado(match[0]); return; }
-          }
-        } catch(e) {} finally { scannerOcupado = false; }
-      }, 600);
-    } else {
-      // Fallback: captura + OCR via backend Apps Script
-      document.getElementById('btn-capturar').style.display = '';
-      document.getElementById('scanner-status').textContent = 'Apuntá la cámara y presioná Capturar';
+    const track = scannerStream.getVideoTracks()[0];
+    const caps  = track && track.getCapabilities ? track.getCapabilities() : {};
+    if (caps.torch) document.getElementById('btn-linterna').style.display = '';
+    if (caps.focusMode && caps.focusMode.includes('continuous')) {
+      track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }).catch(function() {});
     }
+
+    await iniciarBarcodeDetector();
+    document.getElementById('btn-capturar').style.display = '';
+    status.textContent = 'Apuntá el número SAP al recuadro…';
+
+    // Tesseract se descarga en segundo plano; mientras tanto ya leen los detectores nativos
+    if (!textDetector) {
+      obtenerOcrWorker().then(function() {
+        if (sesion === scannerSesion && !barcodeDetector) status.textContent = 'Apuntá el número SAP al recuadro…';
+      }).catch(function() {
+        if (sesion === scannerSesion && !barcodeDetector) status.textContent = 'Lectura automática no disponible: encuadrá y presioná Capturar';
+      });
+      if (!barcodeDetector) status.textContent = 'Preparando lector de texto…';
+    }
+
+    scannerTimer = setInterval(async function() {
+      if (scannerOcupado || video.readyState < 2) return;
+      scannerOcupado = true;
+      try {
+        const r = await leerCuadro(video, sesion);
+        if (sesion !== scannerSesion || !r) return;
+        if (r.confirmado || scannerUltimo === r.sap) {
+          onSapEncontrado(r.sap);
+        } else {
+          // Número de 10 dígitos que no está en el maestro: pedir una segunda lectura igual
+          scannerUltimo = r.sap;
+          document.getElementById('scanner-result').textContent = r.sap + ' ?';
+        }
+      } catch(e) {} finally { scannerOcupado = false; }
+    }, SCAN_INTERVALO_MS);
   } catch(err) {
     const msg = err.name === 'NotAllowedError'
-      ? 'Permiso de cámara denegado.' : 'No se pudo acceder a la cámara.';
-    document.getElementById('scanner-status').textContent = msg;
+      ? 'Permiso de cámara denegado. Habilitalo en la configuración del navegador.'
+      : 'No se pudo acceder a la cámara.';
+    status.textContent = msg;
   }
 }
 
+async function alternarLinterna() {
+  if (!scannerStream) return;
+  const track = scannerStream.getVideoTracks()[0];
+  try {
+    scannerTorch = !scannerTorch;
+    await track.applyConstraints({ advanced: [{ torch: scannerTorch }] });
+    document.getElementById('btn-linterna').classList.toggle('on', scannerTorch);
+  } catch(e) { scannerTorch = false; }
+}
+
+// Captura manual: OCR del backend (Apps Script) sobre el recuadro guía.
 async function capturarYOcr() {
   if (scannerOcupado) return;
   const video = document.getElementById('scanner-video');
   if (video.readyState < 2) return;
+  const sesion = scannerSesion;
   scannerOcupado = true;
   document.getElementById('btn-capturar').disabled = true;
   document.getElementById('scanner-status').textContent = 'Procesando…';
   document.getElementById('scanner-result').textContent = '';
 
   try {
-    // Reducir a 800px de ancho para agilizar la transferencia
-    const MAX_W = 800;
-    const scale = Math.min(1, MAX_W / video.videoWidth);
-    const canvas = document.getElementById('scanner-canvas');
-    canvas.width  = Math.round(video.videoWidth  * scale);
-    canvas.height = Math.round(video.videoHeight * scale);
-    canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
-    const base64 = canvas.toDataURL('image/jpeg', 0.85).split(',')[1];
+    // Primero el lector local sobre el cuadro congelado, luego el backend
+    const local = await leerCuadro(video, sesion).catch(function() { return null; });
+    if (sesion !== scannerSesion) return;
+    if (local) { onSapEncontrado(local.sap); return; }
 
+    const canvas = mejorarParaOcr(recortarGuia(video, 2));
+    const base64 = canvas.toDataURL('image/jpeg', 0.9).split(',')[1];
     const res = await apiPost({ action: 'reconocerTexto', base64, mimeType: 'image/jpeg' });
+    if (sesion !== scannerSesion) return;
     if (!res.ok) throw new Error(res.error);
 
-    const texto = (res.data.texto || '').replace(/\s/g, '');
-    const match = texto.match(/\d{10}/);
-    if (match) {
-      onSapEncontrado(match[0]);
+    const r = extraerSap(res.data.texto || '');
+    if (r) {
+      onSapEncontrado(r.sap);
     } else {
       const leido = (res.data.texto || '').trim().replace(/\n/g, ' ').substring(0, 60);
-      document.getElementById('scanner-status').textContent = 'No se detectó número SAP. Acercate más.';
+      document.getElementById('scanner-status').textContent = 'No se detectó número SAP. Acercate más o encendé la linterna.';
       document.getElementById('scanner-result').textContent = leido ? 'Leído: "' + leido + '"' : '';
     }
   } catch(err) {
-    document.getElementById('scanner-status').textContent = 'Error: ' + err.message;
+    if (sesion === scannerSesion) document.getElementById('scanner-status').textContent = 'Error: ' + err.message;
   } finally {
     scannerOcupado = false;
     document.getElementById('btn-capturar').disabled = false;
@@ -3397,21 +3616,27 @@ async function capturarYOcr() {
 }
 
 function onSapEncontrado(sap) {
+  if (navigator.vibrate) navigator.vibrate(80);
   cerrarScanner();
   document.getElementById('inp-buscar').value = sap;
   ejecutarBusqueda();
-  toast('SAP detectado: ' + sap, 'ok');
+  const existe = S.materiales.some(function(m) { return String(m.codigo_sap) === String(sap); });
+  if (existe) toast('SAP detectado: ' + sap, 'ok');
+  else toast('SAP ' + sap + ' leído, pero no está en el maestro de materiales', 'warn');
 }
 
 function cerrarScanner() {
+  scannerSesion++;
   clearInterval(scannerTimer);
   scannerTimer = null;
   scannerOcupado = false;
+  scannerUltimo  = null;
   if (scannerStream) {
     scannerStream.getTracks().forEach(t => t.stop());
     scannerStream = null;
   }
   document.getElementById('scanner-video').srcObject = null;
+  document.getElementById('btn-linterna').classList.remove('on');
   cerrarOverlay('ov-scanner');
 }
 
@@ -3454,7 +3679,9 @@ function cerrarOverlay(id) {
 // Cerrar overlay al click en el fondo
 document.querySelectorAll('.overlay').forEach(ov => {
   ov.addEventListener('click', e => {
-    if (e.target === ov) cerrarOverlay(ov.id);
+    if (e.target !== ov) return;
+    if (ov.id === 'ov-scanner') cerrarScanner();
+    else cerrarOverlay(ov.id);
   });
 });
 
