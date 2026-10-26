@@ -388,6 +388,22 @@
     .kpi-meta { font-size: 12px; color: var(--txt3); margin-top: 8px; }
     .kpi-card .btn-sm { margin-top: 12px; }
     @media (max-width: 640px) { .kpi-grid { grid-template-columns: 1fr; } }
+    .kpi-historial { margin-top: 24px; }
+    .kpi-historial h3 { font-size: 14px; font-weight: 600; margin: 0 0 4px; }
+    .kpi-historial table { font-size: 12px; width: 100%; }
+    .kpi-historial td.num, .kpi-historial th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .delta { font-size: 11px; margin-left: 4px; }
+    .delta.mejora { color: var(--ok); }
+    .delta.empeora { color: var(--err); }
+    .delta.igual { color: var(--txt3); }
+    .sem-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 12px 0; }
+    .sem-kpi { border: 1px solid var(--border); border-radius: var(--r-lg); padding: 10px 12px; }
+    .sem-kpi-k { font-size: 11px; font-weight: 600; color: var(--txt2); }
+    .sem-kpi-v { font-size: 20px; font-weight: 600; margin-top: 2px; font-variant-numeric: tabular-nums; }
+    .sem-pasos { font-size: 13px; margin: 8px 0 0; padding-left: 18px; color: var(--txt2); }
+    .sem-pasos li.ok { color: var(--ok); }
+    .sem-pasos li.err { color: var(--err); }
+    @media (max-width: 640px) { .sem-kpis { grid-template-columns: 1fr 1fr; } }
 
     @media print {
       @page { size: portrait; margin: 10mm; }
@@ -826,6 +842,7 @@
         </div>
         <div class="tool-group btn-mob-hide" role="group" aria-label="Datos">
           <span class="tool-group-label">Datos</span>
+          <button class="btn-pri" onclick="abrirCargaSemanal()" title="Subir el listado de stock que se descarga de SAP cada semana: actualiza Stock SAP, cantidades y ubicaciones, y guarda los KPI de la semana">Carga semanal SAP</button>
           <button class="btn-sec" onclick="abrirAltaMasiva()">Carga masiva</button>
           <button class="btn-sec" onclick="abrirActualizarMasivo()">Actualización masiva</button>
           <button class="btn-sec" onclick="exportarCSV()">Exportar CSV</button>
@@ -1167,6 +1184,36 @@
   </div>
 </div>
 
+<!-- ══ MODAL: CARGA SEMANAL SAP ══════════════════════════════ -->
+<div class="overlay" id="ov-semanal">
+  <div class="modal modal-lg" role="dialog" aria-labelledby="sem-h2">
+    <div class="modal-header">
+      <h2 id="sem-h2">Carga semanal del stock SAP</h2>
+      <button class="close" onclick="cerrarOverlay('ov-semanal')" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="modal-body">
+      <p class="masivo-nota">Suba el listado de stock tal como se descarga de SAP. Con un solo archivo se
+        reemplaza la hoja <strong>Stock SAP</strong>, se actualizan las cantidades (libre utilización) y las
+        ubicaciones en <strong>Materiales</strong>, y se guardan los KPI de la semana en el historial.</p>
+      <p class="texto-sec" id="sem-ultima" style="margin-bottom:12px"></p>
+      <label for="inp-csv-semanal">Archivo CSV de SAP</label>
+      <input type="file" id="inp-csv-semanal" accept=".csv,.txt" onchange="parsearCSVSemanal(this)">
+      <div id="sem-preview" style="display:none">
+        <div class="sem-kpis" id="sem-kpis"></div>
+        <div id="sem-resumen" class="panel-resumen"></div>
+        <label class="check mt-10"><input type="checkbox" id="chk-sem-cantidad" checked onchange="renderTablaSemanal()"> <span id="lbl-sem-cantidad">Actualizar cantidades</span></label>
+        <label class="check mt-10"><input type="checkbox" id="chk-sem-ubicacion" checked onchange="renderTablaSemanal()"> <span id="lbl-sem-ubicacion">Actualizar ubicaciones</span></label>
+        <div id="sem-tabla" class="tabla-scroll"></div>
+      </div>
+      <ol class="sem-pasos" id="sem-pasos" style="display:none"></ol>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-sec" onclick="cerrarOverlay('ov-semanal')">Cerrar</button>
+      <button class="btn-pri" id="btn-sem-procesar" onclick="procesarCargaSemanal()" disabled>Procesar carga semanal</button>
+    </div>
+  </div>
+</div>
+
 <!-- ══ MODAL: AUDITORÍA ══════════════════════════════════════ -->
 <div class="overlay" id="ov-auditoria">
   <div class="modal" role="dialog" aria-labelledby="aud-h2">
@@ -1294,6 +1341,12 @@
           <button class="btn-sec btn-sm" onclick="exportarKPI4CSV()">Descargar listado</button>
         </div>
       </div>
+      <section class="kpi-historial">
+        <h3>Evolución semanal</h3>
+        <p class="texto-sec">Una fila por semana, guardada con el botón "Carga semanal SAP". Entre paréntesis, la variación contra la semana anterior.</p>
+        <div id="kpi-historial-tabla" class="tabla-scroll" style="max-height:none"></div>
+        <button class="btn-sec btn-sm mt-10" id="btn-historial-csv" onclick="exportarHistorialKPICSV()" disabled>Descargar historial</button>
+      </section>
       <p class="modal-nota">
         Formato de ubicación válido: prefijo de zona oficial (2 dígitos), dos letras, dos dígitos, guion y
         dos o tres dígitos (por ejemplo, 10BB02-30 o 41AA02-140). Solo se considera el stock de libre utilización (campo
@@ -2378,7 +2431,14 @@ const CANDIDATOS_STOCKSAP = {
   codigo_sap: ['material','codigo_material','cod_material','nro_material','codigo'],
   material:   ['texto_breve_de_material','texto_breve','descripcion','denominacion','texto_breve_material'],
   ubicacion:  ['ubicacion','emplazamiento','ubicacion_deposito'],
-  cantidad:   ['libre_utilizacion','libre_utiliz','stock_libre_utilizacion','cantidad']
+  cantidad:   ['libre_utilizacion','libre_utiliz','stock_libre_utilizacion','cantidad'],
+  centro:     ['centro'],
+  almacen:    ['almacen','alm'],
+  valor:      ['valor_libre_util','valor_libre_utilizacion','valor_stock','valor'],
+  pieza_fabricante: ['n_pieza_fabricante','nro_pieza_fabricante','numero_pieza_fabricante',
+    'numero_de_pieza_del_fabricante','pieza_fabricante','pieza_del_fabricante',
+    'material_fabricante','denominacion_del_fabricante'],
+  unidad_medida: ['unidad_medida_base','umb','unidad_de_medida_base','unidad_medida','unidad_de_medida','um']
 };
 
 function normalizeKeyJS(str) {
@@ -2387,13 +2447,44 @@ function normalizeKeyJS(str) {
     .replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'');
 }
 
+// Lector CSV con comillas (RFC 4180): un texto breve de SAP puede traer el
+// separador, comillas ("") o saltos de línea dentro de un campo entre comillas.
+// Acepta la línea "sep=;" de Excel y archivos separados por tabulador (.txt).
 function parsearLineasCSV(texto) {
-  const lines = texto.replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n').filter(l => l.trim());
-  if (lines.length < 2) throw new Error('El archivo está vacío o solo tiene cabecera');
-  const sep = lines[0].includes(';') ? ';' : ',';
-  return lines.map(function(line) {
-    return line.split(sep).map(function(v) { return v.replace(/^["']|["']$/g,'').trim(); });
-  });
+  texto = String(texto).replace(/^\uFEFF/, '');
+  let sep = null;
+  const sepLinea = texto.match(/^sep=(.)\r?\n/i);
+  if (sepLinea) { sep = sepLinea[1]; texto = texto.slice(sepLinea[0].length); }
+  if (!sep) {
+    const cab = texto.slice(0, texto.search(/\r?\n|$/));
+    const cuenta = function(c) { return cab.split(c).length - 1; };
+    sep = [';', '\t', ','].reduce(function(a, c) { return cuenta(c) > cuenta(a) ? c : a; }, ';');
+  }
+
+  const filas = [];
+  let fila = [], campo = '', enComillas = false;
+  for (let i = 0; i < texto.length; i++) {
+    const ch = texto[i];
+    if (enComillas) {
+      if (ch === '"') {
+        if (texto[i + 1] === '"') { campo += '"'; i++; } else enComillas = false;
+      } else campo += ch;
+    } else if (ch === '"' && campo.trim() === '') {
+      enComillas = true; campo = '';
+    } else if (ch === sep) {
+      fila.push(campo.trim()); campo = '';
+    } else if (ch === '\n' || ch === '\r') {
+      if (ch === '\r' && texto[i + 1] === '\n') i++;
+      fila.push(campo.trim()); campo = '';
+      if (fila.some(function(v) { return v !== ''; })) filas.push(fila);
+      fila = [];
+    } else campo += ch;
+  }
+  fila.push(campo.trim());
+  if (fila.some(function(v) { return v !== ''; })) filas.push(fila);
+
+  if (filas.length < 2) throw new Error('El archivo está vacío o solo tiene cabecera');
+  return filas;
 }
 
 function parsearCSVStockSAP(input) {
@@ -3265,12 +3356,12 @@ function clasificarUbicacion(ubicRaw) {
   return 'zona_con_nombre';
 }
 
-function calcularKPIsUbicacion() {
+function calcularKPIsUbicacion(fuente) {
   // Fuente: hoja "Stock SAP". getStockSAP() ya descarta las filas sin
   // código, así que el universo cumple de por sí el criterio de alcance
   // confirmado por Pablo: "todo material con número SAP asignado" — no
   // hace falta excluir nada del catálogo GPC ni filtrar por Centro/Almacén.
-  const materiales = S.stockSAP || [];
+  const materiales = fuente || S.stockSAP || [];
 
   const categorias = { valido: [], sin_ubicacion: [], zona_con_nombre: [], variante_codigo: [] };
   materiales.forEach(m => categorias[clasificarUbicacion(m.ubicacion)].push(m));
@@ -3374,6 +3465,7 @@ async function abrirKPIs() {
   S.kpi3Grupos = kpi3.grupos;
   S.kpi4Grupos = kpi4.grupos;
   abrirOverlay('ov-kpis');
+  cargarHistorialKPI().then(renderHistorialKPI);
 }
 
 function exportarCSVGenerico(rows, cols, filenamePrefix) {
@@ -3422,6 +3514,370 @@ function exportarKPI3CSV() {
 function exportarKPI4CSV() {
   const cols = ['grupo', 'descripcion_normalizada', 'codigo_sap', 'material', 'pieza_fabricante', 'cantidad', 'ubicacion', 'centro', 'almacen'];
   exportarCSVGenerico(gruposKPIaFilas(S.kpi4Grupos), cols, 'KPI4_duplicados');
+}
+
+// ═══════════════════════════════════════════════════════════
+// CARGA SEMANAL DEL STOCK SAP + HISTORIAL DE KPI
+// ═══════════════════════════════════════════════════════════
+// Un solo archivo (el listado de stock que se baja de SAP cada semana):
+//   1. reemplaza la hoja "Stock SAP" (fuente de los KPI),
+//   2. sincroniza cantidad (libre utilización) y ubicación en Materiales,
+//   3. guarda una foto de los KPI de la semana en la hoja "Historial KPI"
+//      (acciones guardarSnapshotKPI / getHistorialKPI de apps-script/historial-kpi.gs).
+let semanalData = null; // { filas, items, diffs, archivo, kpis }
+
+// Formato numérico de SAP: "1.234,5" (es-AR), "1,234.5" o "2,5"; el signo negativo puede venir al final.
+function parseNumeroSAP(v) {
+  let t = String(v ?? '').trim().replace(/\s/g, '');
+  if (!t) return 0;
+  let neg = false;
+  if (/-$/.test(t)) { neg = true; t = t.slice(0, -1); }
+  if (t.includes(',') && t.includes('.')) {
+    t = t.lastIndexOf(',') > t.lastIndexOf('.') ? t.replace(/\./g, '').replace(',', '.') : t.replace(/,/g, '');
+  } else if (t.includes(',')) {
+    t = t.replace(',', '.');
+  } else if (/^\d{1,3}(\.\d{3})+$/.test(t)) {
+    t = t.replace(/\./g, '');
+  }
+  const n = Number(t);
+  return isNaN(n) ? 0 : (neg ? -n : n);
+}
+
+// SAP puede exportar el material con ceros a la izquierda (18 posiciones)
+function claveCodigoSAP(v) {
+  const t = String(v ?? '').trim().replace(/\.0+$/, '');
+  return /^\d+$/.test(t) ? t.replace(/^0+(?=\d)/, '') : t;
+}
+
+// Igual que getStockSAP() del backend: busca el encabezado en las primeras 15 filas.
+function mapearStockSAPCrudo(filas) {
+  let headerIdx = -1;
+  const cols = {};
+  for (let i = 0; i < Math.min(filas.length, 15); i++) {
+    const fila = filas[i].map(normalizeKeyJS);
+    const reconocidos = Object.keys(CANDIDATOS_STOCKSAP).filter(function(c) {
+      return CANDIDATOS_STOCKSAP[c].some(function(k) { return fila.indexOf(k) >= 0; });
+    });
+    if (reconocidos.length >= 3) {
+      headerIdx = i;
+      Object.keys(CANDIDATOS_STOCKSAP).forEach(function(c) {
+        const idx = fila.findIndex(function(h) { return CANDIDATOS_STOCKSAP[c].indexOf(h) >= 0; });
+        if (idx >= 0) cols[c] = idx;
+      });
+      break;
+    }
+  }
+  if (headerIdx < 0 || cols.codigo_sap === undefined) return null;
+
+  const val = function(r, c) { return cols[c] !== undefined ? String(r[cols[c]] ?? '').trim() : ''; };
+  const items = [];
+  for (let i = headerIdx + 1; i < filas.length; i++) {
+    const r = filas[i];
+    const codigo = claveCodigoSAP(r[cols.codigo_sap]);
+    if (!codigo) continue;
+    items.push({
+      codigo_sap: codigo,
+      material: val(r, 'material'),
+      centro: val(r, 'centro'),
+      almacen: val(r, 'almacen'),
+      ubicacion: val(r, 'ubicacion'),
+      cantidad: cols.cantidad !== undefined ? parseNumeroSAP(r[cols.cantidad]) : 0,
+      valor: cols.valor !== undefined ? parseNumeroSAP(r[cols.valor]) : 0,
+      pieza_fabricante: val(r, 'pieza_fabricante'),
+      unidad_medida: val(r, 'unidad_medida')
+    });
+  }
+  return { cols, items };
+}
+
+// Semana ISO 8601 ("2026-W44"): la semana es la unidad del historial.
+function semanaISO(fecha) {
+  const d = new Date(Date.UTC(fecha.getFullYear(), fecha.getMonth(), fecha.getDate()));
+  const dia = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dia);
+  const inicio = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const semana = Math.ceil(((d - inicio) / 86400000 + 1) / 7);
+  return d.getUTCFullYear() + '-W' + String(semana).padStart(2, '0');
+}
+
+function resumenKPIs(k, stock) {
+  return {
+    materiales: k.kpi1.total,
+    materiales_con_stock: stock.filter(function(m) { return Number(m.cantidad) > 0; }).length,
+    valor_libre_util_ars: Math.round(stock.reduce(function(s, m) { return s + (Number(m.valor) || 0); }, 0)),
+    kpi1_pct: Math.round(k.kpi1.pct * 10) / 10,
+    kpi1_validos: k.kpi1.categorias.valido.length,
+    sin_ubicacion: k.kpi1.categorias.sin_ubicacion.length,
+    zona_con_nombre: k.kpi1.categorias.zona_con_nombre.length,
+    variante_codigo: k.kpi1.categorias.variante_codigo.length,
+    kpi2_materiales: k.kpi2.afectados.length,
+    kpi2_valor_ars: Math.round(k.kpi2.valorARS),
+    kpi3_grupos: k.kpi3.grupos.length,
+    kpi4_grupos: k.kpi4.grupos.length
+  };
+}
+
+// null = el backend todavía no tiene la acción (falta pegar historial-kpi.gs)
+async function cargarHistorialKPI() {
+  try {
+    const res = await apiGet('getHistorialKPI');
+    S.historialKPI = res.ok ? (res.data || []).slice().sort(function(a, b) {
+      return String(a.semana).localeCompare(String(b.semana));
+    }) : null;
+  } catch(e) { S.historialKPI = null; }
+  return S.historialKPI;
+}
+
+// Sentido de mejora de cada indicador: +1 = más es mejor, -1 = menos es mejor, 0 = neutro
+const KPI_SENTIDO = { kpi1_pct: 1, kpi2_materiales: -1, kpi3_grupos: -1, kpi4_grupos: -1 };
+
+function htmlDelta(campo, actual, anterior, decimales) {
+  if (anterior === undefined || anterior === null || anterior === '') return '';
+  const d = Number(actual) - Number(anterior);
+  const sentido = KPI_SENTIDO[campo] || 0;
+  const cls = Math.abs(d) < 1e-9 ? 'igual' : (sentido === 0 ? 'igual' : (d * sentido > 0 ? 'mejora' : 'empeora'));
+  const txt = (d > 0 ? '+' : '') + (decimales ? d.toFixed(decimales) : Math.round(d).toLocaleString('es-AR'));
+  return '<span class="delta ' + cls + '">(' + txt + ')</span>';
+}
+
+function renderHistorialKPI() {
+  const cont = document.getElementById('kpi-historial-tabla');
+  const btn = document.getElementById('btn-historial-csv');
+  const h = S.historialKPI;
+  btn.disabled = !(h && h.length);
+  if (h === null) {
+    cont.innerHTML = '<p class="texto-sec">El historial todavía no está habilitado en el servidor (falta agregar <code>historial-kpi.gs</code> al Apps Script).</p>';
+    return;
+  }
+  if (!h.length) {
+    cont.innerHTML = '<p class="texto-sec">Todavía no hay cargas semanales guardadas. Se registran con el botón "Carga semanal SAP".</p>';
+    return;
+  }
+  const n = function(v) { return Number(v || 0).toLocaleString('es-AR'); };
+  const filas = h.map(function(r, i) {
+    const p = h[i - 1] || {};
+    return '<tr><td><strong>' + esc(r.semana) + '</strong></td>'
+      + '<td>' + esc(String(r.fecha || '').slice(0, 10)) + '</td>'
+      + '<td class="num">' + Number(r.kpi1_pct || 0).toFixed(1) + '% ' + htmlDelta('kpi1_pct', r.kpi1_pct, p.kpi1_pct, 1) + '</td>'
+      + '<td class="num">' + n(r.kpi2_materiales) + ' ' + htmlDelta('kpi2_materiales', r.kpi2_materiales, p.kpi2_materiales) + '</td>'
+      + '<td class="num">' + n(r.kpi3_grupos) + ' ' + htmlDelta('kpi3_grupos', r.kpi3_grupos, p.kpi3_grupos) + '</td>'
+      + '<td class="num">' + n(r.kpi4_grupos) + ' ' + htmlDelta('kpi4_grupos', r.kpi4_grupos, p.kpi4_grupos) + '</td>'
+      + '<td class="num">' + n(r.materiales_con_stock) + '</td>'
+      + '<td class="num">$ ' + n(r.valor_libre_util_ars) + '</td>'
+      + '<td class="num">' + n(r.cantidades_actualizadas) + ' / ' + n(r.ubicaciones_actualizadas) + '</td></tr>';
+  }).reverse().join('');
+  cont.innerHTML = '<table class="mov-table"><thead><tr>'
+    + '<th>Semana</th><th>Cargada</th><th class="num">KPI 1</th><th class="num">KPI 2</th><th class="num">KPI 3</th>'
+    + '<th class="num">KPI 4</th><th class="num">Con stock</th><th class="num">Valor libre util.</th>'
+    + '<th class="num" title="Cantidades / ubicaciones actualizadas en Materiales">Act. cant./ubic.</th>'
+    + '</tr></thead><tbody>' + filas + '</tbody></table>';
+}
+
+function exportarHistorialKPICSV() {
+  const cols = ['semana', 'fecha', 'usuario', 'archivo', 'materiales', 'materiales_con_stock', 'valor_libre_util_ars',
+    'kpi1_pct', 'kpi1_validos', 'sin_ubicacion', 'zona_con_nombre', 'variante_codigo',
+    'kpi2_materiales', 'kpi2_valor_ars', 'kpi3_grupos', 'kpi4_grupos', 'cantidades_actualizadas', 'ubicaciones_actualizadas'];
+  exportarCSVGenerico(S.historialKPI || [], cols, 'historial_KPI_almacen');
+}
+
+function abrirCargaSemanal() {
+  semanalData = null;
+  document.getElementById('inp-csv-semanal').value = '';
+  document.getElementById('sem-preview').style.display = 'none';
+  document.getElementById('sem-pasos').style.display = 'none';
+  document.getElementById('btn-sem-procesar').disabled = true;
+  document.getElementById('sem-ultima').textContent = '';
+  abrirOverlay('ov-semanal');
+  cargarHistorialKPI().then(function(h) {
+    const el = document.getElementById('sem-ultima');
+    if (h === null) {
+      el.textContent = 'Aviso: el servidor todavía no guarda el historial de KPI; la carga actualiza los datos igual.';
+    } else if (h.length) {
+      const u = h[h.length - 1];
+      el.textContent = 'Última carga semanal: ' + u.semana + ' (' + String(u.fecha || '').slice(0, 16) + ', ' + (u.usuario || '-') + '). '
+        + 'Esta carga corresponde a la semana ' + semanaISO(new Date()) + '.';
+    } else {
+      el.textContent = 'Todavía no hay cargas semanales guardadas. Esta será la de la semana ' + semanaISO(new Date()) + '.';
+    }
+    if (semanalData) renderPreviewSemanal();
+  });
+}
+
+function parsearCSVSemanal(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const filas = parsearLineasCSV(e.target.result);
+      const mapeo = mapearStockSAPCrudo(filas);
+      if (!mapeo) throw new Error('No se reconocen las columnas del listado de SAP (Material, Libre utilización, Ubicación…)');
+      if (mapeo.cols.cantidad === undefined) throw new Error('El archivo no tiene la columna "Libre utilización"');
+      semanalData = { filas, items: mapeo.items, cols: mapeo.cols, archivo: file.name };
+      calcularDiffsSemanal();
+      renderPreviewSemanal();
+    } catch(err) {
+      semanalData = null;
+      document.getElementById('sem-preview').style.display = 'none';
+      document.getElementById('btn-sem-procesar').disabled = true;
+      toast(err.message, 'err');
+    }
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+function calcularDiffsSemanal() {
+  // Un material puede venir en varias filas (centro/almacén): se suma la libre utilización
+  const porCodigo = {};
+  semanalData.items.forEach(function(it) {
+    const a = porCodigo[it.codigo_sap] || (porCodigo[it.codigo_sap] = { cantidad: 0, ubicacion: '' });
+    a.cantidad += it.cantidad;
+    if (!a.ubicacion && it.ubicacion) a.ubicacion = it.ubicacion;
+  });
+
+  const diffs = [];
+  let comparados = 0;
+  S.materiales.forEach(function(m) {
+    if (m.es_gpc_no_cargado || !m.codigo_sap) return;
+    const sap = porCodigo[claveCodigoSAP(m.codigo_sap)];
+    if (!sap) return;
+    comparados++;
+    const cantidadActual = Number(m.cantidad) || 0;
+    const ubicacionActual = String(m.ubicacion ?? '').trim();
+    const cambiaCantidad = Math.abs(sap.cantidad - cantidadActual) > 1e-9;
+    // Sin dato en SAP ("", "0", "N/A") no se pisa la ubicación cargada en la app
+    const cambiaUbicacion = clasificarUbicacion(sap.ubicacion) !== 'sin_ubicacion' && sap.ubicacion !== ubicacionActual;
+    if (cambiaCantidad || cambiaUbicacion) {
+      diffs.push({
+        codigo_sap: String(m.codigo_sap), material: m.material,
+        cantidadActual, cantidadNueva: Math.round(sap.cantidad * 1000) / 1000, cambiaCantidad,
+        ubicacionActual, ubicacionNueva: sap.ubicacion, cambiaUbicacion
+      });
+    }
+  });
+  semanalData.diffs = diffs;
+  semanalData.comparados = comparados;
+  semanalData.codigosArchivo = Object.keys(porCodigo).length;
+  semanalData.kpis = resumenKPIs(calcularKPIsUbicacion(semanalData.items), semanalData.items);
+}
+
+function renderPreviewSemanal() {
+  const d = semanalData;
+  const k = d.kpis;
+  const ant = (S.historialKPI && S.historialKPI.length) ? S.historialKPI[S.historialKPI.length - 1] : {};
+  const tile = function(titulo, campo, txt, dec) {
+    return '<div class="sem-kpi"><div class="sem-kpi-k">' + titulo + '</div><div class="sem-kpi-v">' + txt
+      + ' ' + htmlDelta(campo, k[campo], ant[campo], dec) + '</div></div>';
+  };
+  document.getElementById('sem-kpis').innerHTML =
+      tile('KPI 1 · Ubicación válida', 'kpi1_pct', k.kpi1_pct.toFixed(1) + '%', 1)
+    + tile('KPI 2 · Con stock sin ubic.', 'kpi2_materiales', k.kpi2_materiales.toLocaleString('es-AR'))
+    + tile('KPI 3 · Stock mixto', 'kpi3_grupos', k.kpi3_grupos.toLocaleString('es-AR'))
+    + tile('KPI 4 · Duplicados', 'kpi4_grupos', k.kpi4_grupos.toLocaleString('es-AR'));
+
+  const nCant = d.diffs.filter(function(x) { return x.cambiaCantidad; }).length;
+  const nUbic = d.diffs.filter(function(x) { return x.cambiaUbicacion; }).length;
+  document.getElementById('sem-resumen').textContent =
+    d.items.length.toLocaleString('es-AR') + ' filas en el archivo (' + d.codigosArchivo.toLocaleString('es-AR') + ' materiales) · '
+    + d.comparados.toLocaleString('es-AR') + ' existen en Materiales · ' + d.diffs.length.toLocaleString('es-AR') + ' con diferencias.'
+    + (ant.semana ? ' Variación contra la semana ' + ant.semana + '.' : '');
+  document.getElementById('lbl-sem-cantidad').textContent = 'Actualizar cantidades (' + nCant + ')';
+  document.getElementById('lbl-sem-ubicacion').textContent = 'Actualizar ubicaciones (' + nUbic + ')';
+  document.getElementById('sem-preview').style.display = '';
+  document.getElementById('sem-pasos').style.display = 'none';
+  renderTablaSemanal();
+  document.getElementById('btn-sem-procesar').disabled = false;
+}
+
+function renderTablaSemanal() {
+  if (!semanalData) return;
+  const incCant = document.getElementById('chk-sem-cantidad').checked;
+  const incUbic = document.getElementById('chk-sem-ubicacion').checked;
+  const visibles = semanalData.diffs.filter(function(d) {
+    return (d.cambiaCantidad && incCant) || (d.cambiaUbicacion && incUbic);
+  });
+  const filas = visibles.slice(0, 200).map(function(d) {
+    const cant = (d.cambiaCantidad && incCant)
+      ? '<span class="diff-num diff-old">' + esc(String(d.cantidadActual)) + '</span> → <span class="diff-num diff-new">' + esc(String(d.cantidadNueva)) + '</span>'
+      : '<span class="diff-num">' + esc(String(d.cantidadActual)) + '</span>';
+    const ubic = (d.cambiaUbicacion && incUbic)
+      ? '<span class="diff-old">' + esc(d.ubicacionActual || '-') + '</span> → <span class="diff-new">' + esc(d.ubicacionNueva) + '</span>'
+      : esc(d.ubicacionActual || '-');
+    return '<tr><td><code>' + esc(d.codigo_sap) + '</code></td><td>' + esc(d.material) + '</td><td>' + cant + '</td><td>' + ubic + '</td></tr>';
+  }).join('');
+  document.getElementById('sem-tabla').innerHTML = visibles.length
+    ? '<table class="mov-table"><thead><tr><th>Código SAP</th><th>Material</th><th>Cantidad</th><th>Ubicación</th></tr></thead><tbody>'
+      + filas + '</tbody></table>'
+      + (visibles.length > 200 ? '<p class="texto-sec mt-6">… y ' + (visibles.length - 200) + ' más</p>' : '')
+    : '<p class="texto-sec">Sin cambios para aplicar en Materiales.</p>';
+}
+
+async function procesarCargaSemanal() {
+  if (!semanalData) return;
+  const d = semanalData;
+  const incCant = document.getElementById('chk-sem-cantidad').checked;
+  const incUbic = document.getElementById('chk-sem-ubicacion').checked;
+  const actualizaciones = d.diffs.map(function(x) {
+    const campos = {};
+    if (x.cambiaCantidad && incCant) campos.cantidad = x.cantidadNueva;
+    if (x.cambiaUbicacion && incUbic) campos.ubicacion = x.ubicacionNueva;
+    return { codigo_sap: x.codigo_sap, campos };
+  }).filter(function(a) { return Object.keys(a.campos).length; });
+  const nCant = actualizaciones.filter(function(a) { return 'cantidad' in a.campos; }).length;
+  const nUbic = actualizaciones.filter(function(a) { return 'ubicacion' in a.campos; }).length;
+
+  const pasos = document.getElementById('sem-pasos');
+  pasos.style.display = '';
+  pasos.innerHTML = '';
+  const paso = function(txt) {
+    const li = document.createElement('li'); li.textContent = txt + '…'; pasos.appendChild(li);
+    return {
+      ok: function(t) { li.textContent = t; li.className = 'ok'; },
+      err: function(t) { li.textContent = t; li.className = 'err'; }
+    };
+  };
+  const btn = document.getElementById('btn-sem-procesar');
+  btn.disabled = true;
+  mostrarLoading(true);
+  try {
+    let p = paso('Reemplazando la hoja Stock SAP');
+    let res = await apiPost({ action: 'reemplazarStockSAP', filas: d.filas, usuario: S.usuario });
+    if (!res.ok) { p.err('Stock SAP: ' + res.error); throw new Error(res.error); }
+    p.ok('Hoja Stock SAP reemplazada (' + res.data.filas.toLocaleString('es-AR') + ' filas)');
+
+    if (actualizaciones.length) {
+      p = paso('Actualizando Materiales');
+      res = await apiPost({ action: 'actualizarMasivo', actualizaciones, usuario: S.usuario });
+      if (!res.ok) { p.err('Materiales: ' + res.error); throw new Error(res.error); }
+      p.ok('Materiales: ' + nCant + ' cantidades y ' + nUbic + ' ubicaciones actualizadas'
+        + (res.data.noEncontrados ? ' (' + res.data.noEncontrados + ' no encontrados)' : ''));
+    } else {
+      paso('').ok('Materiales: sin cambios para aplicar');
+    }
+
+    // Los KPI se recalculan sobre la hoja ya reemplazada, igual que en la ventana de KPI
+    p = paso('Guardando los KPI de la semana');
+    if (!(await cargarStockSAP())) { p.err('No se pudo releer Stock SAP para los KPI'); throw new Error('Stock SAP'); }
+    const snapshot = Object.assign({ semana: semanaISO(new Date()), archivo: d.archivo,
+      cantidades_actualizadas: nCant, ubicaciones_actualizadas: nUbic },
+      resumenKPIs(calcularKPIsUbicacion(), S.stockSAP));
+    res = await apiPost({ action: 'guardarSnapshotKPI', snapshot, usuario: S.usuario });
+    if (res.ok) {
+      p.ok('KPI guardados en el historial (' + snapshot.semana + (res.data.reemplazada ? ', reemplaza la carga anterior de esta semana' : '') + '): '
+        + 'KPI 1 ' + snapshot.kpi1_pct.toFixed(1) + '% · KPI 2 ' + snapshot.kpi2_materiales + ' · KPI 3 ' + snapshot.kpi3_grupos + ' · KPI 4 ' + snapshot.kpi4_grupos);
+    } else {
+      p.err('Datos actualizados, pero el historial de KPI no se guardó: ' + res.error
+        + (/no v[aá]lida/i.test(res.error || '') ? ' (falta agregar historial-kpi.gs al Apps Script)' : ''));
+    }
+    toast('Carga semanal procesada', 'ok');
+    semanalData = null;
+    await cargarMateriales();
+  } catch(err) {
+    toast('La carga semanal se detuvo: ' + err.message, 'err');
+    btn.disabled = false;
+  } finally {
+    mostrarLoading(false);
+  }
 }
 
 // ═══════════════════════════════════════════════════════════
