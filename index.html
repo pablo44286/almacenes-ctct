@@ -599,6 +599,30 @@
     #btn-linterna.on { background: #fff4d6; border-color: #d08a14; color: #7a4d00; }
     .fab-scan, .mob-only, .det-hero { display: none; }
 
+    /* ═══ Relevamiento de ubicaciones ═════════════════════════ */
+    .relev-actual { display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+      background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--r-lg);
+      padding: 12px 14px; margin-bottom: 12px; }
+    .relev-actual-k { font-size: 12px; color: var(--txt2); text-transform: uppercase; letter-spacing: .04em; }
+    .relev-actual-v { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--pri); }
+    .relev-actual-v.vacia { color: var(--txt2); font-size: 15px; font-weight: 500; font-family: inherit; }
+    .relev-acciones { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+    .relev-acciones button { min-height: 48px; font-size: 15px; }
+    .relev-manual { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+    .relev-manual .fila-controles { flex-wrap: nowrap; gap: 6px; }
+    .relev-manual input { min-width: 0; flex: 1; }
+    .relev-manual label { font-size: 12px; }
+    #relev-tabla { max-height: 45vh; }
+    #relev-tabla .diff-num { white-space: nowrap; }
+    #relev-tabla tr.sin-cambio td { color: var(--txt2); }
+    #relev-tabla .relev-del { background: none; border: none; color: var(--err); cursor: pointer;
+      font-size: 15px; padding: 2px 6px; }
+    #scan-relev-bar { display: none; text-align: center; font-size: 14px; padding: 8px 12px;
+      background: var(--pri-bg); color: var(--pri); border-radius: var(--r); margin-bottom: 10px; }
+    #scan-relev-bar b { font-family: var(--mono); font-size: 16px; }
+    #ov-scanner.relev #scan-relev-bar { display: block; }
+    #scanner-result.ok { color: var(--ok); }
+
     /* ═══ Resumen del material (tarjeta en celular) ═══════════ */
     .det-hero { margin-bottom: 16px; }
     .det-hero-sap { font-family: var(--mono); font-size: 13px; color: var(--txt2); }
@@ -670,13 +694,13 @@
       table { font-size: 13px; }
       td, th { padding: 10px 8px; }
       /* ocultar: Cód.mat(3) Marca(4) Área(5) Ubicación(6) Ubic.técnica(7) Obs(9) Img(10) */
-      #thead-row th:nth-child(3), tbody td:nth-child(3),
-      #thead-row th:nth-child(4), tbody td:nth-child(4),
-      #thead-row th:nth-child(5), tbody td:nth-child(5),
-      #thead-row th:nth-child(6), tbody td:nth-child(6),
-      #thead-row th:nth-child(7), tbody td:nth-child(7),
-      #thead-row th:nth-child(9), tbody td:nth-child(9),
-      #thead-row th:nth-child(10), tbody td:nth-child(10),
+      #thead-row th:nth-child(3), #tbody td:nth-child(3),
+      #thead-row th:nth-child(4), #tbody td:nth-child(4),
+      #thead-row th:nth-child(5), #tbody td:nth-child(5),
+      #thead-row th:nth-child(6), #tbody td:nth-child(6),
+      #thead-row th:nth-child(7), #tbody td:nth-child(7),
+      #thead-row th:nth-child(9), #tbody td:nth-child(9),
+      #thead-row th:nth-child(10), #tbody td:nth-child(10),
       colgroup col:nth-child(3), colgroup col:nth-child(4), colgroup col:nth-child(5),
       colgroup col:nth-child(6), colgroup col:nth-child(7), colgroup col:nth-child(9),
       colgroup col:nth-child(10) { display: none; }
@@ -763,6 +787,18 @@
       #ov-scanner .modal-footer button { min-height: 52px; font-size: 15px; }
       #ov-scanner .modal-footer .btn-sec { background: #1d2430; color: #fff; border-color: #3a4454; }
       #ov-scanner #btn-linterna.on { background: #fff4d6; color: #7a4d00; border-color: #d08a14; }
+      #scan-relev-bar { margin: 0; border-radius: 0; background: #12233a; color: #fff; }
+      #scanner-result.ok { color: #7ee2a0; }
+      .relev-manual { grid-template-columns: 1fr; }
+      #ov-relev .modal { display: flex; flex-direction: column; max-height: 94vh; max-height: 94dvh; overflow: hidden; }
+      #ov-relev .modal-body { flex: 1; min-height: 0; overflow-y: auto; }
+      #ov-relev .modal-footer { display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+        padding-bottom: calc(12px + env(safe-area-inset-bottom)) !important; }
+      #ov-relev .modal-footer button { min-height: 44px; }
+      #ov-relev .modal-footer .btn-pri { grid-column: 1 / -1; order: -1; }
+      #relev-tabla { max-height: none; }
+      #relev-tabla th, #relev-tabla td { padding: 5px 6px; }
+      #relev-tabla td:nth-child(2) { white-space: normal; min-width: 90px; }
 
       /* ── Tarjeta del material ── */
       .det-hero { display: block; }
@@ -836,6 +872,9 @@
           <button class="btn-sec" id="btn-filtro-gpc-nc" onclick="toggleFiltroGPCNoCargado()" title="Mostrar ítems GPC sin número SAP">Sin SAP</button>
           <button class="btn-sec" id="btn-filtro-misc-ft" onclick="toggleFiltroMiscFT()" title="Misceláneos por contrato (responsable: Omar)">Misc. FT</button>
           <button class="btn-sec" id="btn-filtro-dup" onclick="toggleFiltroDuplicados()" title="Mostrar materiales con descripción duplicada">Duplicados</button>
+        </div>
+        <div class="tool-group" role="group" aria-label="Relevamiento">
+          <button class="btn-sec" onclick="abrirRelevamiento()" title="Escanear ubicación y códigos SAP para armar el listado de ubicaciones a actualizar en SAP">Relevar ubicaciones</button>
         </div>
         <div class="tool-group btn-mob-hide" role="group" aria-label="Consultas">
           <button class="btn-sec" onclick="abrirValvulasHRSG()" title="Repuestos de válvulas de calderas HRSG (HP Valves, HJ Valve, KVT, Dongkang), cruzado con Materiales y Stock SAP">Válvulas HRSG</button>
@@ -1367,6 +1406,60 @@
   Escanear
 </button>
 
+<!-- ══ MODAL: RELEVAMIENTO DE UBICACIONES ════════════════════ -->
+<div class="overlay" id="ov-relev">
+  <div class="modal modal-lg" role="dialog" aria-labelledby="relev-h2">
+    <div class="modal-header">
+      <h2 id="relev-h2">Relevamiento de ubicaciones</h2>
+      <button class="close" onclick="cerrarOverlay('ov-relev')" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="modal-body">
+      <p class="masivo-nota">Escaneá la etiqueta de la <strong>ubicación</strong> y después los <strong>códigos SAP</strong>
+        de los materiales que están ahí: cada uno queda registrado con esa ubicación hasta que escanees otra.
+        El listado se guarda en este dispositivo y se exporta para actualizar las ubicaciones en SAP.</p>
+      <div class="relev-actual">
+        <div>
+          <div class="relev-actual-k">Ubicación actual</div>
+          <div class="relev-actual-v vacia" id="relev-ubic-actual">Sin ubicación: escaneá una</div>
+        </div>
+        <span class="badge" id="relev-contador" style="margin-left:auto"></span>
+      </div>
+      <div class="relev-acciones">
+        <button class="btn-sec" onclick="abrirScanner('relev-ubic')">Escanear ubicación</button>
+        <button class="btn-pri" onclick="abrirScanner('relev-sap')">Escanear SAP</button>
+      </div>
+      <div class="relev-manual">
+        <div>
+          <label for="inp-relev-ubic">Ubicación a mano</label>
+          <div class="fila-controles">
+            <input type="text" id="inp-relev-ubic" list="lista-ubicaciones" placeholder="10AB01-02" autocomplete="off"
+              autocapitalize="characters" onkeydown="if(event.key==='Enter')fijarUbicacionManual()">
+            <button class="btn-sec" onclick="fijarUbicacionManual()">Fijar</button>
+          </div>
+          <datalist id="lista-ubicaciones"></datalist>
+        </div>
+        <div>
+          <label for="inp-relev-sap">Código SAP a mano</label>
+          <div class="fila-controles">
+            <input type="text" id="inp-relev-sap" inputmode="numeric" placeholder="1000012345" autocomplete="off"
+              onkeydown="if(event.key==='Enter')agregarSapManual()">
+            <button class="btn-sec" onclick="agregarSapManual()">Agregar</button>
+          </div>
+        </div>
+      </div>
+      <div id="relev-resumen" class="panel-resumen"></div>
+      <div id="relev-tabla" class="tabla-scroll"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-sec" onclick="vaciarRelevamiento()" style="order:9">Vaciar lista</button>
+      <button class="btn-sec" onclick="exportarRelevamientoDetalle()" title="Todas las lecturas, con la ubicación anterior y la nueva">Exportar detalle</button>
+      <button class="btn-sec" onclick="copiarRelevamientoSAP()" title="Copia Material, Centro, Almacén y Ubicación (separados por tabulación) para pegar en SAP o Excel">Copiar para SAP</button>
+      <button class="btn-sec" onclick="aplicarRelevamientoApp()" title="Actualiza la ubicación de estos materiales en la app (hoja Materiales)">Aplicar en la app</button>
+      <button class="btn-pri" onclick="exportarRelevamientoSAP()" title="CSV con Material; Centro; Almacén; Ubicación de los materiales cuya ubicación cambió">Exportar para SAP</button>
+    </div>
+  </div>
+</div>
+
 <!-- ══ MODAL: SCANNER ════════════════════════════════════════ -->
 <div class="overlay" id="ov-scanner">
   <div class="modal modal-xs" role="dialog" aria-labelledby="scan-h2">
@@ -1375,6 +1468,7 @@
       <button class="close" onclick="cerrarScanner()" aria-label="Cerrar">✕</button>
     </div>
     <div class="modal-body">
+      <div id="scan-relev-bar"></div>
       <div class="scan-viewport">
         <video id="scanner-video" playsinline muted autoplay></video>
         <div class="scan-guide-rect"></div>
@@ -1385,7 +1479,8 @@
     </div>
     <div class="modal-footer">
       <button id="btn-linterna" class="btn-sec" onclick="alternarLinterna()" style="display:none" title="Encender/apagar linterna">Linterna</button>
-      <button class="btn-sec" onclick="cerrarScanner()">Cancelar</button>
+      <button id="btn-scan-cambiar" class="btn-sec" onclick="alternarModoRelev()" style="display:none">Cambiar ubicación</button>
+      <button class="btn-sec" id="btn-scan-cerrar" onclick="cerrarScanner()">Cancelar</button>
       <button id="btn-capturar" class="btn-pri" onclick="capturarYOcr()" style="display:none">Capturar</button>
     </div>
   </div>
@@ -3901,6 +3996,17 @@ let textDetector   = null;
 let barcodeDetector = null;
 let ocrWorker      = null;
 let ocrWorkerProm  = null;
+let ocrWhitelist   = '';
+// 'consulta': abre la tarjeta del material · 'relev-sap' / 'relev-ubic': relevamiento de ubicaciones
+let scannerModo    = 'consulta';
+
+const WL_DIGITOS   = '0123456789';
+const WL_UBICACION = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-';
+
+function scannerLeeUbicacion() { return scannerModo === 'relev-ubic'; }
+function extraerSegunModo(texto) {
+  return scannerLeeUbicacion() ? extraerUbicacion(texto) : extraerSap(texto);
+}
 
 try { if ('TextDetector' in window) textDetector = new TextDetector(); } catch(e) {}
 
@@ -3932,9 +4038,10 @@ function obtenerOcrWorker() {
       if (!window.Tesseract) await cargarScript(TESSERACT_CDN);
       const w = await Tesseract.createWorker('eng');
       await w.setParameters({
-        tessedit_char_whitelist: '0123456789',
+        tessedit_char_whitelist: WL_DIGITOS,
         tessedit_pageseg_mode: '7'   // una sola línea de texto
       });
+      ocrWhitelist = WL_DIGITOS;
       ocrWorker = w;
       return w;
     })().catch(function(e) { ocrWorkerProm = null; throw e; });
@@ -4038,7 +4145,7 @@ async function leerCuadro(video, sesion) {
     try {
       const codigos = await barcodeDetector.detect(video);
       for (const c of codigos) {
-        const r = extraerSap(c.rawValue);
+        const r = extraerSegunModo(c.rawValue);
         if (r) return Object.assign(r, { fuente: 'barras', confirmado: true });
       }
     } catch(e) {}
@@ -4050,7 +4157,7 @@ async function leerCuadro(video, sesion) {
     try {
       const textos = await textDetector.detect(recortarGuia(video, 1));
       for (const t of textos) {
-        const r = extraerSap(t.rawValue);
+        const r = extraerSegunModo(t.rawValue);
         if (r) return Object.assign(r, { fuente: 'texto', confirmado: r.conocido });
       }
     } catch(e) {}
@@ -4059,19 +4166,31 @@ async function leerCuadro(video, sesion) {
 
   // 3. Tesseract.js
   if (ocrWorker) {
+    // Mismo worker para los dos tipos de etiqueta: sólo cambia el juego de caracteres
+    const wl = scannerLeeUbicacion() ? WL_UBICACION : WL_DIGITOS;
+    if (ocrWhitelist !== wl) {
+      await ocrWorker.setParameters({ tessedit_char_whitelist: wl });
+      ocrWhitelist = wl;
+      if (sesion !== scannerSesion) return null;
+    }
     // Tesseract rinde mejor con caracteres de ~50-80 px de alto: normalizar el recorte
     // a ~150 px (achica en celulares de alta resolución, agranda en cámaras chicas)
     const alto = recortarGuia(video, 1).height;
     const c2 = recortarGuia(video, Math.min(3, 150 / alto));
     const { data } = await ocrWorker.recognize(mejorarParaOcr(c2));
-    const r = extraerSap(data.text);
+    if (sesion !== scannerSesion) return null;
+    const r = extraerSegunModo(data.text);
     if (r) return Object.assign(r, { fuente: 'ocr', confirmado: r.conocido });
   }
   return null;
 }
 
-async function abrirScanner() {
+async function abrirScanner(modo) {
   const sesion = ++scannerSesion;
+  scannerModo = modo || 'consulta';
+  // Relevamiento sin ubicación fijada: lo primero es leer la etiqueta de la ubicación
+  if (scannerModo === 'relev-sap' && !R.ubicActual) scannerModo = 'relev-ubic';
+  actualizarUIScanner();
   abrirOverlay('ov-scanner');
   const status = document.getElementById('scanner-status');
   status.textContent = 'Iniciando cámara…';
@@ -4105,12 +4224,12 @@ async function abrirScanner() {
 
     await iniciarBarcodeDetector();
     document.getElementById('btn-capturar').style.display = '';
-    status.textContent = 'Apuntá el número SAP al recuadro…';
+    status.textContent = textoApuntar();
 
     // Tesseract se descarga en segundo plano; mientras tanto ya leen los detectores nativos
     if (!textDetector) {
       obtenerOcrWorker().then(function() {
-        if (sesion === scannerSesion && !barcodeDetector) status.textContent = 'Apuntá el número SAP al recuadro…';
+        if (sesion === scannerSesion && !barcodeDetector) status.textContent = textoApuntar();
       }).catch(function() {
         if (sesion === scannerSesion && !barcodeDetector) status.textContent = 'Lectura automática no disponible: encuadrá y presioná Capturar';
       });
@@ -4121,14 +4240,19 @@ async function abrirScanner() {
       if (scannerOcupado || video.readyState < 2) return;
       scannerOcupado = true;
       try {
+        const modoLectura = scannerModo;
         const r = await leerCuadro(video, sesion);
-        if (sesion !== scannerSesion || !r) return;
-        if (r.confirmado || scannerUltimo === r.sap) {
-          onSapEncontrado(r.sap);
+        if (sesion !== scannerSesion || !r || modoLectura !== scannerModo) return;
+        const valor = r.sap || r.ubic;
+        if (r.confirmado || scannerUltimo === valor) {
+          scannerUltimo = null;
+          onLecturaScanner(r);
         } else {
-          // Número de 10 dígitos que no está en el maestro: pedir una segunda lectura igual
-          scannerUltimo = r.sap;
-          document.getElementById('scanner-result').textContent = r.sap + ' ?';
+          // Valor con formato válido pero desconocido (no está en el maestro): pedir una segunda lectura igual
+          scannerUltimo = valor;
+          const res = document.getElementById('scanner-result');
+          res.classList.remove('ok');
+          res.textContent = valor + ' ?';
         }
       } catch(e) {} finally { scannerOcupado = false; }
     }, SCAN_INTERVALO_MS);
@@ -4165,7 +4289,7 @@ async function capturarYOcr() {
     // Primero el lector local sobre el cuadro congelado, luego el backend
     const local = await leerCuadro(video, sesion).catch(function() { return null; });
     if (sesion !== scannerSesion) return;
-    if (local) { onSapEncontrado(local.sap); return; }
+    if (local) { onLecturaScanner(local); return; }
 
     const canvas = mejorarParaOcr(recortarGuia(video, 2));
     const base64 = canvas.toDataURL('image/jpeg', 0.9).split(',')[1];
@@ -4173,12 +4297,13 @@ async function capturarYOcr() {
     if (sesion !== scannerSesion) return;
     if (!res.ok) throw new Error(res.error);
 
-    const r = extraerSap(res.data.texto || '');
+    const r = extraerSegunModo(res.data.texto || '');
     if (r) {
-      onSapEncontrado(r.sap);
+      onLecturaScanner(r);
     } else {
       const leido = (res.data.texto || '').trim().replace(/\n/g, ' ').substring(0, 60);
-      document.getElementById('scanner-status').textContent = 'No se detectó número SAP. Acercate más o encendé la linterna.';
+      document.getElementById('scanner-status').textContent = (scannerLeeUbicacion()
+        ? 'No se detectó una ubicación válida.' : 'No se detectó número SAP.') + ' Acercate más o encendé la linterna.';
       document.getElementById('scanner-result').textContent = leido ? 'Leído: "' + leido + '"' : '';
     }
   } catch(err) {
@@ -4186,7 +4311,51 @@ async function capturarYOcr() {
   } finally {
     scannerOcupado = false;
     document.getElementById('btn-capturar').disabled = false;
+    if (sesion === scannerSesion && scannerModo !== 'consulta') {
+      const st = document.getElementById('scanner-status');
+      if (st.textContent === 'Procesando…') st.textContent = textoApuntar();
+    }
   }
+}
+
+function onLecturaScanner(r) {
+  if (scannerModo === 'consulta') return onSapEncontrado(r.sap);
+  if (scannerModo === 'relev-ubic') return fijarUbicacionRelev(r.ubic, true);
+  return agregarSapRelev(r.sap, true);
+}
+
+function textoApuntar() {
+  return scannerLeeUbicacion() ? 'Apuntá la etiqueta de la ubicación al recuadro…' : 'Apuntá el número SAP al recuadro…';
+}
+
+// Título, ayudas y botones del escáner según el modo
+function actualizarUIScanner() {
+  const relev = scannerModo !== 'consulta';
+  const ubic  = scannerLeeUbicacion();
+  document.getElementById('ov-scanner').classList.toggle('relev', relev);
+  document.getElementById('scan-h2').textContent = ubic ? 'Leer ubicación' : (relev ? 'Relevamiento: leer SAP' : 'Leer número SAP');
+  document.querySelector('.scan-guide-hint').textContent = ubic
+    ? 'Encuadrá el código de ubicación (ej. 10AB01-02)'
+    : 'Encuadrá sólo el número SAP grande (10 dígitos)';
+  const btnCambiar = document.getElementById('btn-scan-cambiar');
+  btnCambiar.style.display = relev ? '' : 'none';
+  btnCambiar.textContent = ubic ? (R.ubicActual ? 'Volver a SAP' : 'Escanear SAP') : 'Cambiar ubicación';
+  btnCambiar.disabled = ubic && !R.ubicActual;
+  document.getElementById('btn-scan-cerrar').textContent = relev ? 'Listo' : 'Cancelar';
+  if (relev) {
+    document.getElementById('scan-relev-bar').innerHTML = R.ubicActual
+      ? 'Ubicación: <b>' + esc(R.ubicActual) + '</b> · ' + R.items.length + ' registrados'
+      : 'Primero escaneá la etiqueta de la ubicación';
+  }
+}
+
+function alternarModoRelev() {
+  scannerModo = scannerLeeUbicacion() ? 'relev-sap' : 'relev-ubic';
+  scannerUltimo = null;
+  actualizarUIScanner();
+  document.getElementById('scanner-status').textContent = textoApuntar();
+  const res = document.getElementById('scanner-result');
+  res.textContent = ''; res.classList.remove('ok');
 }
 
 function onSapEncontrado(sap) {
@@ -4214,7 +4383,324 @@ function cerrarScanner() {
   }
   document.getElementById('scanner-video').srcObject = null;
   document.getElementById('btn-linterna').classList.remove('on');
+  document.getElementById('scanner-result').classList.remove('ok');
   cerrarOverlay('ov-scanner');
+  if (scannerModo !== 'consulta') renderRelevamiento();
+}
+
+// ═══════════════════════════════════════════════════════════
+// RELEVAMIENTO DE UBICACIONES
+// Se escanea la etiqueta de la ubicación y luego los códigos SAP de los
+// materiales que están ahí: cada SAP queda registrado con la ubicación fijada
+// hasta que se escanee otra. El listado vive en este dispositivo (localStorage)
+// para no perder lecturas si se corta la señal en el almacén, y se exporta con
+// Material / Centro / Almacén / Ubicación (campo LGPBE) para cargarlo en SAP.
+// ═══════════════════════════════════════════════════════════
+const LS_RELEV = 'ctct_relevamiento_ubic';
+const RELEV_ESPERA_MS = 3000;   // ignora la misma etiqueta mientras sigue en cámara
+const R = { ubicActual: '', items: [] };   // items: {sap, material, ubic_ant, ubic, ts, usuario}
+let relevUltima = { valor: '', t: 0 };
+let ubicacionesConocidas = null;
+
+(function cargarRelevGuardado() {
+  try {
+    const g = JSON.parse(localStorage.getItem(LS_RELEV) || 'null');
+    if (g && Array.isArray(g.items)) { R.ubicActual = g.ubicActual || ''; R.items = g.items; }
+  } catch(e) {}
+})();
+
+function guardarRelev() {
+  try { localStorage.setItem(LS_RELEV, JSON.stringify(R)); }
+  catch(e) { toast('No se pudo guardar el relevamiento en este dispositivo', 'warn'); }
+}
+
+function normUbic(u) { return String(u || '').trim().toUpperCase().replace(/\s+/g, ''); }
+
+// Ubicaciones válidas que ya figuran en Materiales o en Stock SAP
+function obtenerUbicacionesConocidas() {
+  if (ubicacionesConocidas) return ubicacionesConocidas;
+  const set = new Set();
+  S.materiales.concat(S.stockSAP || []).forEach(function(m) {
+    const u = normUbic(m.ubicacion);
+    if (KPI_UBICACION_REGEX.test(u)) set.add(u);
+  });
+  ubicacionesConocidas = set;
+  return set;
+}
+
+// Formato de la Spec: 10|20|30|41-49|50 + 2 letras + 2 dígitos + '-' + 2 o 3 dígitos (ej. 10AB01-02).
+// El OCR confunde letras y dígitos, así que se corrige según la posición de cada carácter.
+const UBIC_A_DIGITO = { O: '0', Q: '0', D: '0', U: '0', I: '1', L: '1', J: '1', '|': '1', Z: '2', S: '5', B: '8', G: '6', T: '7', A: '4' };
+const UBIC_A_LETRA  = { '0': 'O', '1': 'I', '2': 'Z', '4': 'A', '5': 'S', '6': 'G', '7': 'T', '8': 'B' };
+
+function extraerUbicacion(texto) {
+  if (!texto) return null;
+  const conocidas = obtenerUbicacionesConocidas();
+  const candidatos = [];
+  String(texto).toUpperCase().replace(/[–—_]/g, '-').split(/\n/).forEach(function(linea) {
+    const l = linea.replace(/[^0-9A-Z|\-]/g, '');
+    for (let i = 0; i < l.length; i++) {
+      const m = l.slice(i).match(/^([0-9A-Z|]{6})-?([0-9A-Z|]{2,3})/);
+      if (!m) continue;
+      [m[2], m[2].slice(0, 2)].forEach(function(cola) {
+        if (cola.length < 2) return;
+        const crudo = m[1] + cola;
+        let fijo = '', cambios = 0;
+        for (let k = 0; k < crudo.length; k++) {
+          const c = crudo[k];
+          const f = (k === 2 || k === 3) ? (UBIC_A_LETRA[c] || c) : (UBIC_A_DIGITO[c] || c);
+          if (f !== c) cambios++;
+          fijo += f;
+        }
+        const u = fijo.slice(0, 6) + '-' + fijo.slice(6);
+        if (KPI_UBICACION_REGEX.test(u) && !candidatos.some(function(x) { return x.u === u; }))
+          candidatos.push({ u: u, cambios: cambios });
+      });
+    }
+  });
+  const conocida = candidatos.find(function(x) { return conocidas.has(x.u); });
+  if (conocida) return { ubic: conocida.u, conocido: true };
+  // Ubicación que no figura en ningún lado: aceptar como mucho una corrección de OCR
+  const nueva = candidatos.find(function(x) { return x.cambios <= 1; });
+  return nueva ? { ubic: nueva.u, conocido: false } : null;
+}
+
+function stockSAPDe(sap) {
+  const k = claveCodigoSAP(sap);
+  let mejor = null;
+  (S.stockSAP || []).forEach(function(st) {
+    if (claveCodigoSAP(st.codigo_sap) !== k) return;
+    if (!mejor || Number(st.cantidad || 0) > Number(mejor.cantidad || 0)) mejor = st;
+  });
+  return mejor;
+}
+
+function ubicacionAnterior(sap) {
+  const st = stockSAPDe(sap);
+  if (st && st.ubicacion) return normUbic(st.ubicacion);
+  const m = findMat(sap);
+  return m ? normUbic(m.ubicacion) : '';
+}
+
+function relevRepetida(valor) {
+  const ahora = Date.now();
+  if (relevUltima.valor === valor && ahora - relevUltima.t < RELEV_ESPERA_MS) return true;
+  relevUltima = { valor: valor, t: ahora };
+  return false;
+}
+
+function avisoScanner(texto, ok) {
+  const res = document.getElementById('scanner-result');
+  res.textContent = texto;
+  res.classList.toggle('ok', !!ok);
+}
+
+function fijarUbicacionRelev(ubic, desdeScanner) {
+  const u = normUbic(ubic);
+  if (desdeScanner && relevRepetida('U:' + u)) return;
+  R.ubicActual = u;
+  guardarRelev();
+  if (navigator.vibrate) navigator.vibrate([60, 60, 60]);
+  if (desdeScanner) {
+    // Fijada la ubicación, el escáner pasa solo a leer códigos SAP
+    scannerModo = 'relev-sap';
+    scannerUltimo = null;
+    actualizarUIScanner();
+    document.getElementById('scanner-status').textContent = textoApuntar();
+    avisoScanner('Ubicación ' + u, true);
+  } else {
+    toast('Ubicación fijada: ' + u, 'ok');
+  }
+  renderRelevamiento();
+}
+
+function agregarSapRelev(sap, desdeScanner) {
+  const codigo = claveCodigoSAP(sap);
+  if (!codigo) return;
+  if (!R.ubicActual) { toast('Primero escaneá o escribí la ubicación', 'warn'); return; }
+  if (desdeScanner && relevRepetida('S:' + codigo)) return;
+
+  const m = findMat(codigo) || findMat(sap);
+  const idx = R.items.findIndex(function(it) { return claveCodigoSAP(it.sap) === codigo; });
+  let msg, tipo = 'ok';
+  if (idx >= 0 && R.items[idx].ubic === R.ubicActual) {
+    msg = codigo + ' ya estaba registrado en ' + R.ubicActual;
+    tipo = 'warn';
+  } else {
+    const previo = idx >= 0 ? R.items.splice(idx, 1)[0] : null;
+    R.items.unshift({
+      sap: m ? String(m.codigo_sap) : codigo,
+      material: m ? (m.material || '') : ((stockSAPDe(codigo) || {}).material || ''),
+      ubic_ant: previo ? previo.ubic_ant : ubicacionAnterior(codigo),
+      ubic: R.ubicActual,
+      ts: new Date().toISOString(),
+      usuario: S.usuario
+    });
+    guardarRelev();
+    if (previo) { msg = codigo + ': pasó de ' + previo.ubic + ' a ' + R.ubicActual; tipo = 'warn'; }
+    else msg = '✓ ' + codigo + ' → ' + R.ubicActual;
+    if (!m && !stockSAPDe(codigo)) { msg += ' (no está en el maestro)'; tipo = 'warn'; }
+  }
+  if (navigator.vibrate) navigator.vibrate(tipo === 'ok' ? 80 : [40, 40, 40]);
+  if (desdeScanner) {
+    avisoScanner(msg, tipo === 'ok');
+    actualizarUIScanner();
+  } else {
+    toast(msg, tipo);
+  }
+  renderRelevamiento();
+}
+
+function fijarUbicacionManual() {
+  const inp = document.getElementById('inp-relev-ubic');
+  let u = normUbic(inp.value);
+  if (!u) return;
+  // Se acepta sin guion ("10AB0102") o con él
+  if (/^[0-9A-Z]{6}\d{2,3}$/.test(u)) u = u.slice(0, 6) + '-' + u.slice(6);
+  if (!KPI_UBICACION_REGEX.test(u) &&
+      !confirm('"' + u + '" no tiene el formato de ubicación (ej. 10AB01-02). ¿Usarla igual?')) return;
+  inp.value = '';
+  fijarUbicacionRelev(u, false);
+}
+
+function agregarSapManual() {
+  const inp = document.getElementById('inp-relev-sap');
+  const v = inp.value.trim();
+  if (!v) return;
+  if (!/^\d{4,18}$/.test(v)) { toast('El código SAP debe tener sólo dígitos', 'err'); return; }
+  inp.value = '';
+  agregarSapRelev(v, false);
+  inp.focus();
+}
+
+function quitarItemRelev(i) {
+  R.items.splice(i, 1);
+  guardarRelev();
+  renderRelevamiento();
+}
+
+function vaciarRelevamiento() {
+  if (!R.items.length && !R.ubicActual) return;
+  if (!confirm('¿Borrar las ' + R.items.length + ' lecturas del relevamiento? Exportalas antes si las necesitás.')) return;
+  R.items = [];
+  R.ubicActual = '';
+  guardarRelev();
+  renderRelevamiento();
+}
+
+function itemsConCambio() {
+  return R.items.filter(function(it) { return it.ubic !== it.ubic_ant; });
+}
+
+function renderRelevamiento() {
+  const lbl = document.getElementById('relev-ubic-actual');
+  lbl.textContent = R.ubicActual || 'Sin ubicación: escaneá una';
+  lbl.classList.toggle('vacia', !R.ubicActual);
+  document.getElementById('relev-contador').textContent = R.items.length + ' registrados';
+
+  const cambios = itemsConCambio().length;
+  document.getElementById('relev-resumen').textContent = R.items.length
+    ? cambios + ' con ubicación nueva o distinta a la de SAP · ' + (R.items.length - cambios) + ' ya estaban bien'
+    : 'Todavía no hay lecturas.';
+
+  const tabla = document.getElementById('relev-tabla');
+  if (!R.items.length) { tabla.innerHTML = ''; return; }
+  tabla.innerHTML = '<table class="mov-table"><thead><tr>'
+    + '<th>SAP</th><th>Material</th><th>Ubic. SAP</th><th>Ubic. nueva</th><th></th></tr></thead><tbody>'
+    + R.items.map(function(it, i) {
+        const igual = it.ubic === it.ubic_ant;
+        return '<tr' + (igual ? ' class="sin-cambio" title="Sin cambio respecto de SAP"' : '') + '>'
+          + '<td class="diff-num">' + esc(it.sap) + '</td>'
+          + '<td>' + esc(it.material || '—') + '</td>'
+          + '<td class="diff-num' + (igual ? '' : ' val-old') + '">' + esc(it.ubic_ant || '—') + '</td>'
+          + '<td class="diff-num' + (igual ? '' : ' val-new') + '">' + esc(it.ubic) + '</td>'
+          + '<td><button class="relev-del" onclick="quitarItemRelev(' + i + ')" aria-label="Quitar ' + esc(it.sap) + '">✕</button></td>'
+          + '</tr>';
+      }).join('')
+    + '</tbody></table>';
+}
+
+async function abrirRelevamiento() {
+  ubicacionesConocidas = null;
+  renderRelevamiento();
+  abrirOverlay('ov-relev');
+  // Stock SAP aporta la ubicación vigente en SAP y el centro/almacén de cada material
+  if (!S.stockSAP || !S.stockSAP.length) {
+    try {
+      const res = await apiGet('getStockSAP');
+      if (res.ok) {
+        S.stockSAP = res.data || [];
+        ubicacionesConocidas = null;
+        R.items.forEach(function(it) { if (!it.ubic_ant) it.ubic_ant = ubicacionAnterior(it.sap); });
+        renderRelevamiento();
+      }
+    } catch(e) {}
+  }
+  const dl = document.getElementById('lista-ubicaciones');
+  dl.innerHTML = Array.from(obtenerUbicacionesConocidas()).sort()
+    .map(function(u) { return '<option value="' + esc(u) + '">'; }).join('');
+}
+
+function filasParaSAP() {
+  return itemsConCambio().map(function(it) {
+    const st = stockSAPDe(it.sap) || {};
+    return { material: it.sap, centro: st.centro || '', almacen: st.almacen || '', ubicacion: it.ubic };
+  });
+}
+
+function exportarRelevamientoSAP() {
+  const filas = filasParaSAP();
+  if (!filas.length) { toast('No hay ubicaciones nuevas para cargar en SAP', 'warn'); return; }
+  const sinAlm = filas.filter(function(f) { return !f.almacen; }).length;
+  exportarCSVGenerico(filas, ['material', 'centro', 'almacen', 'ubicacion'], 'Ubicaciones_para_SAP');
+  if (sinAlm) toast(sinAlm + ' materiales sin centro/almacén (no figuran en Stock SAP): completalos antes de cargar', 'warn');
+}
+
+function exportarRelevamientoDetalle() {
+  if (!R.items.length) { toast('No hay lecturas para exportar', 'err'); return; }
+  const filas = R.items.slice().reverse().map(function(it) {
+    const st = stockSAPDe(it.sap) || {};
+    return {
+      fecha_hora: new Date(it.ts).toLocaleString('es-AR'), usuario: it.usuario || '',
+      codigo_sap: it.sap, material: it.material, centro: st.centro || '', almacen: st.almacen || '',
+      ubicacion_sap: it.ubic_ant, ubicacion_relevada: it.ubic,
+      cambia: it.ubic !== it.ubic_ant ? 'SI' : 'NO'
+    };
+  });
+  exportarCSVGenerico(filas, ['fecha_hora', 'usuario', 'codigo_sap', 'material', 'centro', 'almacen',
+    'ubicacion_sap', 'ubicacion_relevada', 'cambia'], 'Relevamiento_ubicaciones');
+}
+
+async function copiarRelevamientoSAP() {
+  const filas = filasParaSAP();
+  if (!filas.length) { toast('No hay ubicaciones nuevas para copiar', 'warn'); return; }
+  const texto = filas.map(function(f) { return [f.material, f.centro, f.almacen, f.ubicacion].join('\t'); }).join('\r\n');
+  try {
+    await navigator.clipboard.writeText(texto);
+    toast(filas.length + ' filas copiadas (Material, Centro, Almacén, Ubicación)', 'ok');
+  } catch(e) {
+    toast('No se pudo copiar al portapapeles: usá Exportar para SAP', 'err');
+  }
+}
+
+async function aplicarRelevamientoApp() {
+  const actualizaciones = itemsConCambio()
+    .filter(function(it) { return findMat(it.sap); })
+    .filter(function(it) { return normUbic(findMat(it.sap).ubicacion) !== it.ubic; })
+    .map(function(it) { return { codigo_sap: String(findMat(it.sap).codigo_sap), campos: { ubicacion: it.ubic } }; });
+  if (!actualizaciones.length) { toast('Las ubicaciones de la app ya coinciden con el relevamiento', 'ok'); return; }
+  if (!confirm('¿Actualizar la ubicación de ' + actualizaciones.length + ' materiales en la app? (SAP se actualiza aparte con el archivo exportado)')) return;
+  mostrarLoading(true);
+  try {
+    const res = await apiPost({ action: 'actualizarMasivo', actualizaciones, usuario: S.usuario });
+    if (!res.ok) throw new Error(res.error);
+    toast(res.data.actualizados + ' ubicaciones actualizadas en la app', 'ok');
+    await cargarMateriales();
+  } catch(err) {
+    toast(err.message, 'err');
+  } finally {
+    mostrarLoading(false);
+  }
 }
 
 // ═══════════════════════════════════════════════════════════
