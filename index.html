@@ -622,6 +622,17 @@
     #scan-relev-bar b { font-family: var(--mono); font-size: 16px; }
     #ov-scanner.relev #scan-relev-bar { display: block; }
     #scanner-result.ok { color: var(--ok); }
+    /* Destello del recuadro al detectar una lectura */
+    .scan-viewport.flash-ok .scan-guide-rect   { animation: flashOk .6s ease-out; }
+    .scan-viewport.flash-warn .scan-guide-rect { animation: flashWarn .6s ease-out; }
+    @keyframes flashOk {
+      0%, 40% { border-color: #2ecc71; border-width: 6px; box-shadow: 0 0 0 9999px rgba(46, 204, 113, .45); }
+      100%    { border-color: #fff; border-width: 2px; box-shadow: 0 0 0 9999px rgba(0, 0, 0, .5); }
+    }
+    @keyframes flashWarn {
+      0%, 40% { border-color: #f5a623; border-width: 6px; box-shadow: 0 0 0 9999px rgba(245, 166, 35, .45); }
+      100%    { border-color: #fff; border-width: 2px; box-shadow: 0 0 0 9999px rgba(0, 0, 0, .5); }
+    }
 
     /* ═══ Resumen del material (tarjeta en celular) ═══════════ */
     .det-hero { margin-bottom: 16px; }
@@ -4185,7 +4196,54 @@ async function leerCuadro(video, sesion) {
   return null;
 }
 
+// ── Aviso de lectura: pitido + vibración + destello ──
+// El audio del navegador sólo se habilita tras un toque del usuario: se prepara al abrir el escáner.
+let audioCtx = null;
+function prepararAudio() {
+  try {
+    if (!audioCtx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (AC) audioCtx = new AC();
+    }
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  } catch(e) {}
+}
+
+// tipo: 'ok' (SAP registrado), 'ubic' (ubicación fijada), 'warn' (repetido / no está en el maestro)
+function pitido(tipo) {
+  if (!audioCtx) return;
+  const notas = tipo === 'ubic' ? [[1046, 0, .09], [1568, .12, .14]]
+              : tipo === 'warn' ? [[440, 0, .12], [440, .18, .12]]
+              : [[1760, 0, .12]];
+  const t0 = audioCtx.currentTime + .01;
+  notas.forEach(function(n) {
+    const osc = audioCtx.createOscillator(), gan = audioCtx.createGain();
+    osc.type = tipo === 'warn' ? 'square' : 'sine';
+    osc.frequency.value = n[0];
+    gan.gain.setValueAtTime(0.0001, t0 + n[1]);
+    gan.gain.exponentialRampToValueAtTime(0.5, t0 + n[1] + .01);
+    gan.gain.exponentialRampToValueAtTime(0.0001, t0 + n[1] + n[2]);
+    osc.connect(gan).connect(audioCtx.destination);
+    osc.start(t0 + n[1]);
+    osc.stop(t0 + n[1] + n[2] + .02);
+  });
+}
+
+function senalLectura(tipo) {
+  try { pitido(tipo); } catch(e) {}
+  if (navigator.vibrate) {
+    navigator.vibrate(tipo === 'ubic' ? [120, 80, 120] : tipo === 'warn' ? [60, 60, 60, 60, 60] : 200);
+  }
+  const vp = document.querySelector('#ov-scanner .scan-viewport');
+  if (vp) {
+    vp.classList.remove('flash-ok', 'flash-warn');
+    void vp.offsetWidth;   // reinicia la animación
+    vp.classList.add(tipo === 'warn' ? 'flash-warn' : 'flash-ok');
+  }
+}
+
 async function abrirScanner(modo) {
+  prepararAudio();
   const sesion = ++scannerSesion;
   scannerModo = modo || 'consulta';
   // Relevamiento sin ubicación fijada: lo primero es leer la etiqueta de la ubicación
@@ -4350,6 +4408,7 @@ function actualizarUIScanner() {
 }
 
 function alternarModoRelev() {
+  prepararAudio();
   scannerModo = scannerLeeUbicacion() ? 'relev-sap' : 'relev-ubic';
   scannerUltimo = null;
   actualizarUIScanner();
@@ -4359,7 +4418,7 @@ function alternarModoRelev() {
 }
 
 function onSapEncontrado(sap) {
-  if (navigator.vibrate) navigator.vibrate(80);
+  senalLectura('ok');
   cerrarScanner();
   document.getElementById('inp-buscar').value = sap;
   ejecutarBusqueda();
@@ -4500,7 +4559,7 @@ function fijarUbicacionRelev(ubic, desdeScanner) {
   if (desdeScanner && relevRepetida('U:' + u)) return;
   R.ubicActual = u;
   guardarRelev();
-  if (navigator.vibrate) navigator.vibrate([60, 60, 60]);
+  senalLectura('ubic');
   if (desdeScanner) {
     // Fijada la ubicación, el escáner pasa solo a leer códigos SAP
     scannerModo = 'relev-sap';
@@ -4541,7 +4600,7 @@ function agregarSapRelev(sap, desdeScanner) {
     else msg = '✓ ' + codigo + ' → ' + R.ubicActual;
     if (!m && !stockSAPDe(codigo)) { msg += ' (no está en el maestro)'; tipo = 'warn'; }
   }
-  if (navigator.vibrate) navigator.vibrate(tipo === 'ok' ? 80 : [40, 40, 40]);
+  senalLectura(tipo);
   if (desdeScanner) {
     avisoScanner(msg, tipo === 'ok');
     actualizarUIScanner();
